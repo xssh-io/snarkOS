@@ -1,7 +1,7 @@
 [package]
 name = "snarkos-node-router"
 version = "2.2.7"
-authors = [ "The Aleo Team <hello@aleo.org>" ]
+authors = ["The Aleo Team <hello@aleo.org>"]
 description = "A node router for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
@@ -10,15 +10,23 @@ keywords = [
   "cryptography",
   "blockchain",
   "decentralized",
-  "zero-knowledge"
+  "zero-knowledge",
 ]
-categories = [ "cryptography", "operating-systems" ]
+categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
 edition = "2021"
 
 [features]
-test = [ ]
-metrics = [ "dep:metrics" ]
+test = []
+metrics = ["dep:metrics"]
+
+[dependencies]
+axum = { version = "0.7.2", features = ["macros"] }
+schemars = { version = "0.8.16", features = ["derive"] }
+
+[dependencies.aide]
+version = "0.13.0"
+features = ["axum", "macros", "redoc"]
 
 [dependencies.anyhow]
 version = "1.0.79"
@@ -37,11 +45,11 @@ version = "2"
 
 [dependencies.futures]
 version = "0.3.30"
-features = [ "thread-pool" ]
+features = ["thread-pool"]
 
 [dependencies.indexmap]
 version = "2.1"
-features = [ "serde", "rayon" ]
+features = ["serde", "rayon"]
 
 [dependencies.linked-hash-map]
 version = "0.5"
@@ -79,6 +87,10 @@ version = "=2.2.7"
 path = "messages"
 version = "=2.2.7"
 
+[dependencies.snarkos-node-router-core]
+path = "core"
+version = "*"
+
 [dependencies.snarkos-node-tcp]
 path = "../tcp"
 version = "=2.2.7"
@@ -91,19 +103,11 @@ version = "0.3"
 
 [dependencies.tokio]
 version = "1.28"
-features = [
-  "io-util",
-  "macros",
-  "net",
-  "rt-multi-thread",
-  "signal",
-  "sync",
-  "time"
-]
+features = ["full"]
 
 [dependencies.tokio-util]
 version = "0.7"
-features = [ "codec" ]
+features = ["codec"]
 
 [dependencies.tokio-stream]
 version = "=0.1"
@@ -116,23 +120,23 @@ version = "0.2"
 
 [dev-dependencies.futures-util]
 version = "0.3"
-features = [ "sink" ]
+features = ["sink"]
 
 [dev-dependencies.peak_alloc]
 version = "0.2"
 
 [dev-dependencies.snarkos-node-sync]
 path = "../sync"
-features = [ "test" ]
+features = ["test"]
 
 [dev-dependencies.snarkos-node-router]
 path = "."
-features = [ "test" ]
+features = ["test"]
 
 [dev-dependencies.snarkos-node-router-messages]
 path = "messages"
-features = [ "test" ]
+features = ["test"]
 
 [dev-dependencies.tracing-subscriber]
 version = "0.3"
-features = [ "env-filter", "fmt" ]
+features = ["env-filter", "fmt"]
