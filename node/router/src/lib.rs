@@ -38,6 +38,9 @@ pub use outbound::*;
 mod routing;
 pub use routing::*;
 
+mod http;
+pub use http::*;
+
 use crate::messages::NodeType;
 use snarkos_account::Account;
 use snarkos_node_tcp::{is_bogon_ip, is_unspecified_or_broadcast_ip, Config, Tcp};

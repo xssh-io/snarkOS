@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Heartbeat, Inbound, Outbound};
+use crate::{http, Heartbeat, Inbound, Outbound};
 use snarkos_node_tcp::{
     protocols::{Disconnect, Handshake, OnConnect},
     P2P,
@@ -42,6 +42,10 @@ pub trait Routing<N: Network>:
     // Start listening for inbound connections.
     async fn enable_listener(&self) {
         self.tcp().enable_listener().await.expect("Failed to enable the TCP listener");
+    }
+
+    async fn enable_http_request(&self) {
+        http::init_routes().await;
     }
 
     /// Initialize a new instance of the heartbeat.
