@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod http;
 mod router;
-
+use crate::tcp::{
+    protocols::{Disconnect, Handshake, OnConnect, Reading, Writing},
+    P2P,
+};
 use crate::traits::NodeInterface;
+pub use http::*;
 use snarkos_account::Account;
 use snarkos_node_bft::ledger_service::ProverLedgerService;
 use snarkos_node_router::{
@@ -22,10 +27,6 @@ use snarkos_node_router::{
     Heartbeat, Inbound, Outbound, Router, Routing,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
-use snarkos_node_tcp::{
-    protocols::{Disconnect, Handshake, OnConnect, Reading, Writing},
-    P2P,
-};
 use snarkvm::{
     ledger::narwhal::Data,
     prelude::{
@@ -44,6 +45,7 @@ use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
 use snarkos_node_bft::helpers::fmt_id;
+use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 use snarkvm::prelude::Address;
 use std::{
     net::SocketAddr,
@@ -81,6 +83,8 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     node_type: NodeType,
     /// pool_address
     pool_address: Option<Address<N>>,
+    pool_base_url: Option<String>,
+    http_client: reqwest::Client,
     /// PhantomData.
     _phantom: PhantomData<C>,
 }
@@ -96,6 +100,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         shutdown: Arc<AtomicBool>,
         node_type: NodeType,
         pool_address: Option<Address<N>>,
+        pool_base_url: Option<String>,
     ) -> Result<Self> {
         // Initialize the signal handler.
         let signal_node = Self::handle_signals(shutdown.clone());
@@ -134,10 +139,16 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             shutdown,
             node_type,
             pool_address,
+            pool_base_url,
+            http_client: reqwest::Client::new(),
             _phantom: Default::default(),
         };
         // Initialize the routing.
         node.initialize_routing().await;
+        if let NodeType::ProverPool = node.node_type {
+            node.enable_http_request().await;
+        }
+
         // Initialize the puzzle.
         node.initialize_puzzle().await;
         // Initialize the notification message loop.
@@ -146,6 +157,23 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         let _ = signal_node.set(node.clone());
         // Return the node.
         Ok(node)
+    }
+    async fn enable_http_request(&self) {
+        let config = ServeAxumConfig {
+            title: "Aleo Prover Pool".to_string(),
+            url: self
+                .pool_base_url
+                .as_deref()
+                .expect("expected to have pool-base-url")
+                .parse()
+                .expect("failed to parse url"),
+        };
+        let this = self.clone();
+        tokio::spawn(async move {
+            if let Err(err) = ServeAxum::new(config).serve(http::init_routes::<N, C>(this)).await {
+                error!("Failed to serve HTTP: {:?}", err);
+            }
+        });
     }
 }
 
@@ -234,7 +262,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                 if let Ok(Some((solution_target, solution))) = result {
                     info!("Found a Solution '{}' (Proof Target {solution_target})", solution.id());
                     // Broadcast the solution.
-                    self.broadcast_solution(solution);
+                    self.broadcast_solution(solution).await;
                 }
             } else {
                 // Otherwise, sleep for a brief period of time, to await for puzzle state.
@@ -283,10 +311,18 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     }
 
     /// Broadcasts the solution to the network.
-    fn broadcast_solution(&self, solution: Solution<N>) {
+    async fn broadcast_solution(&self, solution: Solution<N>) {
         match self.node_type {
             NodeType::ProverPoolWorker => {
-                todo!("submit the solution to the pool server via HTTP")
+                if let Err(err) = self
+                    .http_client
+                    .post(format!("{}/submit_solution", self.pool_base_url.as_ref().unwrap()))
+                    .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
+                    .send()
+                    .await
+                {
+                    error!("Failed to submit solution: {}", err);
+                }
             }
             _ => {
                 // Prepare the unconfirmed solution message.

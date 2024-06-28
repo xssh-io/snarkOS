@@ -6,11 +6,11 @@ description = "A node router for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
 keywords = [
-  "aleo",
-  "cryptography",
-  "blockchain",
-  "decentralized",
-  "zero-knowledge",
+    "aleo",
+    "cryptography",
+    "blockchain",
+    "decentralized",
+    "zero-knowledge",
 ]
 categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
@@ -88,10 +88,6 @@ version = "=2.2.7"
 path = "messages"
 version = "=2.2.7"
 
-[dependencies.snarkos-node-router-core]
-path = "core"
-version = "*"
-
 [dependencies.snarkos-node-tcp]
 path = "../tcp"
 version = "=2.2.7"
@@ -130,13 +126,6 @@ version = "0.2"
 path = "../sync"
 features = ["test"]
 
-# [dev-dependencies.snarkos-node-router]
-# path = "."
-# features = ["test"]
-
-# [dev-dependencies.snarkos-node-router-messages]
-# path = "messages"
-# features = ["test"]
 
 [dev-dependencies.tracing-subscriber]
 version = "0.3"

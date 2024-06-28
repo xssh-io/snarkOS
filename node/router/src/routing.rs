@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Heartbeat, Inbound, Outbound};
+use core::time::Duration;
+
+use snarkvm::prelude::Network;
+
 use snarkos_node_tcp::{
     protocols::{Disconnect, Handshake, OnConnect},
     P2P,
 };
-use snarkvm::prelude::Network;
 
-use core::time::Duration;
+use crate::{Heartbeat, Inbound, Outbound};
 
 #[async_trait]
 pub trait Routing<N: Network>:
