@@ -44,6 +44,7 @@ use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
 use snarkos_node_bft::helpers::fmt_id;
+use snarkos_node_router::messages::NodeType::ProverPool;
 use snarkvm::prelude::Address;
 use std::{
     net::SocketAddr,
@@ -173,12 +174,26 @@ impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Prover<N, C> {
 impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     /// Initialize a new instance of the puzzle.
     async fn initialize_puzzle(&self) {
-        for _ in 0..self.max_puzzle_instances {
-            let prover = self.clone();
-            self.handles.lock().push(tokio::spawn(async move {
-                prover.puzzle_loop().await;
-            }));
-        }
+        match self.node_type {
+            NodeType::ProverPool => {
+                self.enable_http_request().await;
+                let prover = self.clone();
+                // TODO: still need to dispatch tasks in side prover.puzzle_loop()
+                self.handles.lock().push(tokio::spawn(async move {
+                    prover.puzzle_loop().await;
+                }));
+                return;
+            }
+            NodeType::Prover | NodeType::ProverPoolWorker => {
+                for _ in 0..self.max_puzzle_instances {
+                    let prover = self.clone();
+                    self.handles.lock().push(tokio::spawn(async move {
+                        prover.puzzle_loop().await;
+                    }));
+                }
+            }
+            _ => unreachable!(),
+        };
     }
 
     /// Executes an instance of the puzzle.
