@@ -41,6 +41,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 use std::{
+    clone,
     net::SocketAddr,
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc},
@@ -92,6 +93,10 @@ pub struct Start {
     /// Specify the path to a file containing the account private key of the node
     #[clap(long = "private-key-file")]
     pub private_key_file: Option<PathBuf>,
+
+    /// Specify the pool address of the node
+    #[clap(long = "pool-address")]
+    pub pool_address: Option<String>,
 
     /// Specify the IP address and port for the node server
     #[clap(long = "node")]
@@ -301,6 +306,12 @@ impl Start {
                     private_key
                 })
             }
+        }
+    }
+    fn parse_pool_address<N: Network>(&self) -> Result<Address<N>> {
+        match &self.pool_address {
+            Some(s) => Address::from_str(s.trim()),
+            None => bail!("Missing the '--pool-public-key' argument"),
         }
     }
 
@@ -583,7 +594,11 @@ impl Start {
         match node_type {
             NodeType::Validator => Node::new_validator(node_ip, self.bft, rest_ip, self.rest_rps, account, &trusted_peers, &trusted_validators, genesis, cdn, storage_mode, self.allow_external_peers, dev_txs, shutdown.clone()).await,
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
-            _ if node_type.is_prover() => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type).await,
+            _ if node_type.is_prover() => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, None).await,
+            NodeType::ProverPoolWorker => {
+                let pool_address = self.parse_pool_address::<N>()?;
+                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, Some(pool_address)).await
+            },
             _ => bail!("Invalid node type specified: {}", node_type),
         }
     }
