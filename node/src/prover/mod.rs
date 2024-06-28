@@ -38,6 +38,8 @@ use snarkvm::{
     synthesizer::VM,
 };
 
+use self::http::handle::SubmitSolutionRequest;
+use crate::route::init_routes;
 use aleo_std::StorageMode;
 use anyhow::Result;
 use colored::Colorize;
@@ -170,7 +172,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         };
         let this = self.clone();
         tokio::spawn(async move {
-            if let Err(err) = ServeAxum::new(config).serve(http::init_routes::<N, C>(this)).await {
+            if let Err(err) = ServeAxum::new(config).serve(init_routes::<N, C>(this)).await {
                 error!("Failed to serve HTTP: {:?}", err);
             }
         });
