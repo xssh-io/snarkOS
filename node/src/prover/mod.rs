@@ -284,13 +284,20 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
 
     /// Broadcasts the solution to the network.
     fn broadcast_solution(&self, solution: Solution<N>) {
-        // Prepare the unconfirmed solution message.
-        let message = Message::UnconfirmedSolution(UnconfirmedSolution {
-            solution_id: solution.id(),
-            solution: Data::Object(solution),
-        });
-        // Propagate the "UnconfirmedSolution".
-        self.propagate(message, &[]);
+        match self.node_type {
+            NodeType::ProverPoolWorker => {
+                todo!("submit the solution to the pool server via HTTP")
+            }
+            _ => {
+                // Prepare the unconfirmed solution message.
+                let message = Message::UnconfirmedSolution(UnconfirmedSolution {
+                    solution_id: solution.id(),
+                    solution: Data::Object(solution),
+                });
+                // Propagate the "UnconfirmedSolution".
+                self.propagate(message, &[]);
+            }
+        }
     }
 
     /// Returns the current number of puzzle instances.
