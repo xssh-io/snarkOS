@@ -17,6 +17,7 @@ use aide::{
     axum::{routing::post_with, ApiRouter, IntoApiResponse},
     transform::TransformOperation,
 };
+use anyhow::bail;
 use axum::response::IntoResponse;
 use axum::{extract::State, http::StatusCode};
 use schemars::JsonSchema;
@@ -25,7 +26,7 @@ use snarkos_node_router_core::error::ServerError;
 use snarkos_node_router_core::{extractor::Json, try_api};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
-use snarkvm::prelude::Network;
+use snarkvm::prelude::{Address, Network};
 use std::convert::Infallible;
 
 pub fn init_routes<N: Network, C: ConsensusStorage<N>>(prover: Prover<N, C>) -> ApiRouter {
@@ -36,6 +37,12 @@ pub fn init_routes<N: Network, C: ConsensusStorage<N>>(prover: Prover<N, C>) -> 
 pub struct SubmitSolutionRequest {
     pub address: String,
     pub solution: SolutionMessage,
+}
+impl SubmitSolutionRequest {
+    pub fn get_solution<N: Network>(&self) -> Result<Solution<N>, anyhow::Error> {
+        let solution = Solution::<N>::try_from(self.solution.clone())?;
+        Ok(solution)
+    }
 }
 /// A helper struct around a puzzle solution.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -76,7 +83,15 @@ impl<N: Network> TryFrom<PartialSolutionMessage> for PartialSolution<N> {
     type Error = anyhow::Error;
 
     fn try_from(value: PartialSolutionMessage) -> Result<Self, Self::Error> {
-        let this = Self::new(value.epoch_hash.parse()?, value.address.parse()?, value.counter)?;
+        let epoch_hash = match value.epoch_hash.parse::<N::BlockHash>() {
+            Ok(ok) => ok,
+            Err(_) => bail!("Invalid epoch hash: {}", value.epoch_hash),
+        };
+        let address = match value.address.parse::<Address<N>>() {
+            Ok(ok) => ok,
+            Err(_) => bail!("Invalid address: {}", value.address),
+        };
+        let this = Self::new(epoch_hash, address, value.counter)?;
         Ok(this)
     }
 }
@@ -90,7 +105,16 @@ impl<N: Network> From<PartialSolution<N>> for PartialSolutionMessage {
         }
     }
 }
-
+//
+// unsafe fn encode_field<T>(t: &T) -> String {
+//     let slice = std::slice::from_raw_parts(t as *const T as *const u8, std::mem::size_of::<T>());
+//     STANDARD.encode(slice)
+// }
+// unsafe fn decode_field<T>(s: &[u8]) -> eyre::Result<T> {
+//     let slice = STANDARD.decode(s)?;
+//     let ptr = slice.as_ptr() as *const T;
+//     Ok(std::ptr::read(ptr))
+// }
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct SubmitSolutionResponse {
     pub msg: String,
@@ -100,7 +124,7 @@ async fn submit_handler<N: Network, C: ConsensusStorage<N>>(
     prover: State<Prover<N, C>>,
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
-    let solution = try_api!(Solution::<N>::try_from(payload.solution.clone()).map_err(|e| {
+    let solution = try_api!(payload.get_solution().map_err(|e| {
         warn!("Invalid solution: {:?}", payload);
         ServerError::<Infallible>::InvalidRequest(e.to_string())
     }));
