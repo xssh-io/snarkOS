@@ -12,24 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use aide::{
-    axum::{routing::post_with, ApiRouter, IntoApiResponse},
+    axum::{
+        routing::{post, post_with},
+        ApiRouter, IntoApiResponse,
+    },
     transform::TransformOperation,
 };
-use axum::http::StatusCode;
+use axum::{extract::State, http::StatusCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snarkos_node_router_core::extractor::Json;
+use snarkos_node_router_core::{extractor::Json, try_api};
 
 pub fn init_routes() -> ApiRouter {
-    ApiRouter::new().api_route("/submit", post_with(submit_handler, submit_transform))
+    ApiRouter::new().api_route("/submit", post(submit_handler))
 }
 
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+
+struct SolutionRequest {
+    solution: String,
+    address: String,
+}
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct TestResponse {
     msg: String,
 }
-async fn submit_handler() -> impl IntoApiResponse {
+async fn submit_handler(Json(mut payload): Json<SolutionRequest>) -> impl IntoApiResponse {
     let response = TestResponse { msg: "submit".into() };
     (StatusCode::OK, Json(response))
 }

@@ -29,6 +29,8 @@ metrics = [
 ]
 history = ["snarkos-node-rest/history"]
 
+[dependencies.reqwest]
+
 [dependencies.aleo-std]
 workspace = true
 
