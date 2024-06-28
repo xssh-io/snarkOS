@@ -44,7 +44,6 @@ use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
 use snarkos_node_bft::helpers::fmt_id;
-use snarkos_node_router::messages::NodeType::ProverPool;
 use snarkvm::prelude::Address;
 use std::{
     net::SocketAddr,
@@ -266,12 +265,16 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             fmt_id(epoch_hash),
             format!("(Coinbase Target {coinbase_target}, Proof Target {proof_target})").dimmed()
         );
+        let address = match self.node_type {
+            NodeType::ProverPoolWorker => self.pool_address.expect("Pool Address is not set"),
+            NodeType::Prover | NodeType::ProverPool => self.address(),
+            _ => unreachable!(),
+        };
 
         // Compute the solution.
-        let result =
-            self.puzzle.prove(epoch_hash, self.address(), rng.gen(), Some(proof_target)).ok().and_then(|solution| {
-                self.puzzle.get_proof_target(&solution).ok().map(|solution_target| (solution_target, solution))
-            });
+        let result = self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)).ok().and_then(|solution| {
+            self.puzzle.get_proof_target(&solution).ok().map(|solution_target| (solution_target, solution))
+        });
 
         // Decrement the puzzle instances.
         self.decrement_puzzle_instances();
