@@ -12,9 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use snarkos_account::Account;
-use snarkos_display::Display;
-use snarkos_node::{bft::MEMORY_POOL_PORT, router::messages::NodeType, Node};
+use core::str::FromStr;
+use std::{
+    net::SocketAddr,
+    path::PathBuf,
+    sync::{atomic::AtomicBool, Arc},
+};
+
+use aleo_std::StorageMode;
+use anyhow::{bail, ensure, Result};
+use clap::Parser;
+use colored::Colorize;
+use indexmap::IndexMap;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaChaRng;
+use serde::{Deserialize, Serialize};
 use snarkvm::{
     console::{
         account::{Address, PrivateKey},
@@ -30,23 +42,11 @@ use snarkvm::{
     synthesizer::VM,
     utilities::to_bytes_le,
 };
-
-use aleo_std::StorageMode;
-use anyhow::{bail, ensure, Result};
-use clap::Parser;
-use colored::Colorize;
-use core::str::FromStr;
-use indexmap::IndexMap;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaChaRng;
-use serde::{Deserialize, Serialize};
-use std::{
-    clone,
-    net::SocketAddr,
-    path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
-};
 use tokio::runtime::{self, Runtime};
+
+use snarkos_account::Account;
+use snarkos_display::Display;
+use snarkos_node::{bft::MEMORY_POOL_PORT, router::messages::NodeType, Node};
 
 /// The recommended minimum number of 'open files' limit for a validator.
 /// Validators should be able to handle at least 1000 concurrent connections, each requiring 2 sockets.
@@ -97,6 +97,10 @@ pub struct Start {
     /// Specify the pool address of the node
     #[clap(long = "pool-address")]
     pub pool_address: Option<String>,
+
+    /// Specify the pool base URL of the node
+    #[clap(long = "pool-base-url")]
+    pub pool_base_url: Option<String>,
 
     /// Specify the IP address and port for the node server
     #[clap(long = "node")]
@@ -594,10 +598,11 @@ impl Start {
         match node_type {
             NodeType::Validator => Node::new_validator(node_ip, self.bft, rest_ip, self.rest_rps, account, &trusted_peers, &trusted_validators, genesis, cdn, storage_mode, self.allow_external_peers, dev_txs, shutdown.clone()).await,
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
-            _ if node_type.is_prover() => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, None).await,
+            _ if node_type.is_prover() => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, None, None).await,
             NodeType::ProverPoolWorker => {
                 let pool_address = self.parse_pool_address::<N>()?;
-                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, Some(pool_address)).await
+                let pool_base_url =self.pool_address.clone();
+                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, Some(pool_address), pool_base_url).await
             },
             _ => bail!("Invalid node type specified: {}", node_type),
         }
@@ -762,9 +767,11 @@ fn load_or_compute_genesis<N: Network>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::commands::{Command, CLI};
     use snarkvm::prelude::MainnetV0;
+
+    use crate::commands::{Command, CLI};
+
+    use super::*;
 
     type CurrentNetwork = MainnetV0;
 

@@ -6,11 +6,11 @@ description = "A node for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
 keywords = [
-  "aleo",
-  "cryptography",
-  "blockchain",
-  "decentralized",
-  "zero-knowledge",
+    "aleo",
+    "cryptography",
+    "blockchain",
+    "decentralized",
+    "zero-knowledge",
 ]
 categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
@@ -21,15 +21,22 @@ default = ["parallel"]
 parallel = ["rayon"]
 timer = ["aleo-std/timer"]
 metrics = [
-  "dep:metrics",
-  "snarkos-node-bft/metrics",
-  "snarkos-node-consensus/metrics",
-  "snarkos-node-router/metrics",
-  "snarkos-node-tcp/metrics",
+    "dep:metrics",
+    "snarkos-node-bft/metrics",
+    "snarkos-node-consensus/metrics",
+    "snarkos-node-router/metrics",
+    "snarkos-node-tcp/metrics",
 ]
 history = ["snarkos-node-rest/history"]
 
-[dependencies.reqwest]
+
+[dependencies]
+axum = { version = "0.7.2", features = ["macros"] }
+schemars = { version = "0.8.16", features = ["derive"] }
+eyre = "0.6.8"
+aide = { version = "0.13.0", features = ["axum", "macros", "redoc"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [dependencies.aleo-std]
 workspace = true
