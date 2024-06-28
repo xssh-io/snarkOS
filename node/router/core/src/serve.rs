@@ -13,21 +13,19 @@
 // limitations under the License.
 
 use crate::docs::docs_routes;
-use aide::axum::ApiRouter;
-use aide::openapi::{Info, OpenApi};
-use axum::extract::Request;
-use axum::{Extension, ServiceExt};
+use aide::{
+    axum::ApiRouter,
+    openapi::{Info, OpenApi},
+};
+use axum::{extract::Request, Extension, ServiceExt};
 use axum_client_ip::SecureClientIpSource;
 use eyre::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 use tower::{Layer, ServiceBuilder};
-use tower_http::cors::CorsLayer;
-use tower_http::normalize_path::NormalizePathLayer;
-use tower_http::trace::TraceLayer;
+use tower_http::{cors::CorsLayer, normalize_path::NormalizePathLayer, trace::TraceLayer};
 use tracing::*;
 use url::Url;
 
@@ -51,6 +49,7 @@ impl ServeAxum {
 
         Self { title: config.title, url: config.url }
     }
+
     pub async fn serve(self, routes: ApiRouter) -> Result<()> {
         let addr = self.url.authority();
         ensure!(self.url.port().is_some(), "Port is not specified in {}", self.url);
@@ -63,7 +62,7 @@ impl ServeAxum {
 
         let router = ApiRouter::new()
             .nest(base_path, routes)
-            .nest(docs_path, docs_routes(&docs_path, &self.title))
+            .nest(docs_path, docs_routes(docs_path, &self.title))
             .finish_api(&mut api)
             .layer(Extension(Arc::new(api)))
             .layer(cors)

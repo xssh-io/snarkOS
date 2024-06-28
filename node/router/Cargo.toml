@@ -23,6 +23,7 @@ metrics = ["dep:metrics"]
 [dependencies]
 axum = { version = "0.7.2", features = ["macros"] }
 schemars = { version = "0.8.16", features = ["derive"] }
+eyre = "0.6.8"
 
 [dependencies.aide]
 version = "0.13.0"

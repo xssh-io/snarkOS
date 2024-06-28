@@ -6,11 +6,11 @@ description = "A node for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
 keywords = [
-    "aleo",
-    "cryptography",
-    "blockchain",
-    "decentralized",
-    "zero-knowledge"
+  "aleo",
+  "cryptography",
+  "blockchain",
+  "decentralized",
+  "zero-knowledge",
 ]
 categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
@@ -21,11 +21,11 @@ default = ["parallel"]
 parallel = ["rayon"]
 timer = ["aleo-std/timer"]
 metrics = [
-    "dep:metrics",
-    "snarkos-node-bft/metrics",
-    "snarkos-node-consensus/metrics",
-    "snarkos-node-router/metrics",
-    "snarkos-node-tcp/metrics"
+  "dep:metrics",
+  "snarkos-node-bft/metrics",
+  "snarkos-node-consensus/metrics",
+  "snarkos-node-router/metrics",
+  "snarkos-node-tcp/metrics",
 ]
 history = ["snarkos-node-rest/history"]
 
@@ -98,9 +98,6 @@ version = "=2.2.7"
 [dependencies.snarkos-node-router]
 path = "./router"
 version = "=2.2.7"
-
-[dependencies.snarkos-node-router-core]
-path = "./router/core"
 
 [dependencies.snarkos-node-sync]
 path = "./sync"

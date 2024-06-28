@@ -14,8 +14,7 @@
 
 use crate::error::ServerError;
 use aide::operation::OperationIo;
-use axum::extract::FromRequest;
-use axum::response::IntoResponse;
+use axum::{extract::FromRequest, response::IntoResponse};
 use axum_jsonschema::JsonSchemaRejection;
 use serde::Serialize;
 

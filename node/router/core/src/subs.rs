@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+};
 
 use axum::extract::ws::WebSocket;
 use serde::Serialize;
@@ -55,9 +59,11 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
     ) -> StreamId {
         self.subscribe_with(stream, vec![], || setting, modify)
     }
+
     pub fn subscribe_by_id(&mut self, id: StreamId, setting: S, modify: impl FnOnce(&mut SubscribeContext<S>)) {
         self.subscribe_with_id(id, vec![], || setting, modify)
     }
+
     pub fn subscribe_with(
         &mut self,
         stream: &Stream,
@@ -70,6 +76,7 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
         self.streams.insert(id, stream.clone());
         id
     }
+
     pub fn subscribe_with_id(
         &mut self,
         id: StreamId,
@@ -83,13 +90,15 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
             settings: new(),
         });
         for key in keys {
-            self.mappings.entry(key).or_insert_with(HashSet::new).insert(id);
+            self.mappings.entry(key).or_default().insert(id);
         }
     }
+
     pub fn unsubscribe(&mut self, stream: &Stream) {
         let id = stream_id(stream);
         self.unsubscribe_by_id(id)
     }
+
     pub fn unsubscribe_by_id(&mut self, id: StreamId) {
         self.subscribes.remove(&id);
         for pair in self.mappings.values_mut() {
@@ -97,22 +106,24 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
         }
         self.streams.remove(&id);
     }
+
     pub fn remove_key(&mut self, key: &Key, mut remove_key: impl FnMut(&mut SubscribeContext<S>) -> bool) {
         let Some(set) = self.mappings.remove(key) else {
             return;
         };
 
         for id in set {
-            let Some(mut ctx) = self.subscribes.get_mut(&id) else {
+            let Some(ctx) = self.subscribes.get_mut(&id) else {
                 continue;
             };
-            let remove = remove_key(&mut ctx);
+            let remove = remove_key(ctx);
             if remove {
                 self.subscribes.remove(&id);
                 self.streams.remove(&id);
             }
         }
     }
+
     pub fn remove_keys(&mut self, keys: &[Key], mut remove: impl FnMut(&mut SubscribeContext<S>, &[&Key]) -> bool) {
         let mut remove_by_keys = HashMap::new();
         for key in keys {
@@ -123,10 +134,10 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
             }
         }
         for (id, keys) in remove_by_keys {
-            let Some(mut ctx) = self.subscribes.get_mut(&id) else {
+            let Some(ctx) = self.subscribes.get_mut(&id) else {
                 continue;
             };
-            let remove = remove(&mut ctx, &keys);
+            let remove = remove(ctx, &keys);
             if remove {
                 self.subscribes.remove(&id);
                 self.streams.remove(&id);
@@ -177,23 +188,25 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
             self.unsubscribe_by_id(conn_id)
         }
     }
+
     pub async fn publish_to_id(&mut self, id: StreamId, msg: &impl Serialize) {
-        let stream = self.streams.get(&id).map(|x| x.clone());
+        let stream = self.streams.get(&id).cloned();
         if let Some(stream) = stream {
             self.publish_to(&stream, msg).await;
         }
     }
+
     pub async fn publish_to_key<Q>(&mut self, key: &Q, msg: &impl Serialize)
     where
         Key: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let Some(conn_ids) = self.mappings.get(key).map(|x| x.clone()) else {
+        let Some(conn_ids) = self.mappings.get(key).cloned() else {
             return;
         };
 
         for conn_id in conn_ids {
-            let stream = self.subscribes.get(&conn_id).map(|x| x.stream_id.clone());
+            let stream = self.subscribes.get(&conn_id).map(|x| x.stream_id);
             if let Some(stream) = stream {
                 self.publish_to_id(stream, msg).await;
             }
@@ -207,7 +220,7 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
     {
         let mut published = HashSet::new();
         for key in keys {
-            let conn_ids = self.mappings.get(key).map(|x| x.clone());
+            let conn_ids = self.mappings.get(key).cloned();
             if let Some(conn_ids) = conn_ids {
                 for conn_id in conn_ids.iter() {
                     // if newly inserted
@@ -218,6 +231,7 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
             }
         }
     }
+
     pub async fn publish_with_filter<M: Serialize>(&mut self, filter: impl Fn(&SubscribeContext<S>) -> Option<M>) {
         let mut dead_connections = vec![];
 
@@ -232,7 +246,7 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
                 "data": data,
             })
             .to_string();
-            let Some(stream) = self.streams.get(&sub.stream_id).map(|x| x.clone()) else {
+            let Some(stream) = self.streams.get(&sub.stream_id).cloned() else {
                 continue;
             };
             let send = stream.lock().await.send(msg.into()).await;
@@ -245,6 +259,7 @@ impl<S, Key: Hash + Eq> SubscriptionManager<S, Key> {
             self.unsubscribe_by_id(conn_id)
         }
     }
+
     pub async fn publish_to_all(&mut self, msg: &impl Serialize) {
         self.publish_with_filter(|_| Some(msg)).await
     }

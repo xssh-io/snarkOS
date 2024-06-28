@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{http, Heartbeat, Inbound, Outbound};
+use crate::{Heartbeat, Inbound, Outbound};
 use snarkos_node_tcp::{
     protocols::{Disconnect, Handshake, OnConnect},
     P2P,
@@ -20,8 +20,6 @@ use snarkos_node_tcp::{
 use snarkvm::prelude::Network;
 
 use core::time::Duration;
-use futures_util::future::err;
-use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 
 #[async_trait]
 pub trait Routing<N: Network>:
@@ -44,17 +42,6 @@ pub trait Routing<N: Network>:
     // Start listening for inbound connections.
     async fn enable_listener(&self) {
         self.tcp().enable_listener().await.expect("Failed to enable the TCP listener");
-    }
-
-    async fn enable_http_request(&self) {
-        let config =
-            ServeAxumConfig { title: "Aleo Prover Pool".to_string(), url: "http://0.0.0.0:8088".parse().unwrap() };
-        tokio::spawn(async move {
-            if let Err(err) = ServeAxum::new(config).serve(http::init_routes()) {
-                error!("Failed to serve HTTP: {:?}", err);
-            }
-            Ok(())
-        });
     }
 
     /// Initialize a new instance of the heartbeat.
