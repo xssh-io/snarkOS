@@ -21,7 +21,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkos_node_router_core::extractor::Json;
 
-pub async fn init_routes() -> ApiRouter {
+pub fn init_routes() -> ApiRouter {
     ApiRouter::new().api_route("/submit", post_with(submit_handler, submit_transform))
 }
 

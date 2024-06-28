@@ -20,6 +20,8 @@ use snarkos_node_tcp::{
 use snarkvm::prelude::Network;
 
 use core::time::Duration;
+use futures_util::future::err;
+use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 
 #[async_trait]
 pub trait Routing<N: Network>:
@@ -45,7 +47,14 @@ pub trait Routing<N: Network>:
     }
 
     async fn enable_http_request(&self) {
-        http::init_routes().await;
+        let config =
+            ServeAxumConfig { title: "Aleo Prover Pool".to_string(), url: "http://0.0.0.0:8088".parse().unwrap() };
+        tokio::spawn(async move {
+            if let Err(err) = ServeAxum::new(config).serve(http::init_routes()) {
+                error!("Failed to serve HTTP: {:?}", err);
+            }
+            Ok(())
+        });
     }
 
     /// Initialize a new instance of the heartbeat.
