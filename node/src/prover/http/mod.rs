@@ -14,7 +14,10 @@
 
 use crate::Prover;
 use aide::{
-    axum::{routing::post_with, ApiRouter, IntoApiResponse},
+    axum::{
+        routing::{get_with, post_with},
+        ApiRouter, IntoApiResponse,
+    },
     transform::TransformOperation,
 };
 use anyhow::bail;
@@ -27,10 +30,13 @@ use snarkos_node_router_core::{extractor::Json, try_api};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
 use snarkvm::prelude::{Address, Network};
-use std::convert::Infallible;
+use std::{convert::Infallible, ops::Deref};
 
 pub fn init_routes<N: Network, C: ConsensusStorage<N>>(prover: Prover<N, C>) -> ApiRouter {
-    ApiRouter::new().api_route("/submit_solution", post_with(submit_handler::<N, C>, submit_docs)).with_state(prover)
+    ApiRouter::new()
+        .api_route("/submit_solution", post_with(submit_handler::<N, C>, submit_docs))
+        .api_route("/pool_address", get_with(pool_address_handler, pool_address_docs))
+        .with_state(prover)
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -136,4 +142,22 @@ async fn submit_handler<N: Network, C: ConsensusStorage<N>>(
 
 fn submit_docs(op: TransformOperation) -> TransformOperation {
     op.description("Submit Method").response::<200, Json<SubmitSolutionResponse>>()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+pub struct PoolAddressResponse {
+    pub pool_address: String,
+}
+async fn pool_address_handler<N: Network, C: ConsensusStorage<N>>(prover: State<Prover<N, C>>) -> impl IntoApiResponse {
+    let prover: &Prover<N, C> = prover.deref();
+    let pool_address = match prover.pool_address {
+        Some(address) => address.to_string(),
+        None => "".into(),
+    };
+    let response = PoolAddressResponse { pool_address };
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+fn pool_address_docs(op: TransformOperation) -> TransformOperation {
+    op.description("Pool Address Method").response::<200, Json<PoolAddressResponse>>()
 }

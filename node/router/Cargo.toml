@@ -6,11 +6,11 @@ description = "A node router for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
 keywords = [
-    "aleo",
-    "cryptography",
-    "blockchain",
-    "decentralized",
-    "zero-knowledge",
+  "aleo",
+  "cryptography",
+  "blockchain",
+  "decentralized",
+  "zero-knowledge",
 ]
 categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
