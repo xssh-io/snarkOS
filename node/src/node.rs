@@ -18,10 +18,7 @@ use snarkos_node_router::messages::NodeType;
 use snarkvm::prelude::{
     block::Block,
     store::helpers::{memory::ConsensusMemory, rocksdb::ConsensusDB},
-    Address,
-    Network,
-    PrivateKey,
-    ViewKey,
+    Address, Network, PrivateKey, ViewKey,
 };
 
 use aleo_std::StorageMode;
@@ -85,8 +82,11 @@ impl<N: Network> Node<N> {
         genesis: Block<N>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
+        node_type: NodeType,
     ) -> Result<Self> {
-        Ok(Self::Prover(Arc::new(Prover::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown).await?)))
+        Ok(Self::Prover(Arc::new(
+            Prover::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, node_type).await?,
+        )))
     }
 
     /// Initializes a new client node.

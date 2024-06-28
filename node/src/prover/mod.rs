@@ -19,11 +19,7 @@ use snarkos_account::Account;
 use snarkos_node_bft::ledger_service::ProverLedgerService;
 use snarkos_node_router::{
     messages::{Message, NodeType, UnconfirmedSolution},
-    Heartbeat,
-    Inbound,
-    Outbound,
-    Router,
-    Routing,
+    Heartbeat, Inbound, Outbound, Router, Routing,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
 use snarkos_node_tcp::{
@@ -80,6 +76,8 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
+    /// Node Type
+    node_type: NodeType,
     /// PhantomData.
     _phantom: PhantomData<C>,
 }
@@ -93,6 +91,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         genesis: Block<N>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
+        node_type: NodeType,
     ) -> Result<Self> {
         // Initialize the signal handler.
         let signal_node = Self::handle_signals(shutdown.clone());
@@ -129,6 +128,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             max_puzzle_instances: u8::try_from(max_puzzle_instances)?,
             handles: Default::default(),
             shutdown,
+            node_type,
             _phantom: Default::default(),
         };
         // Initialize the routing.

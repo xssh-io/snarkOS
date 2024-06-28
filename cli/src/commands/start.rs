@@ -582,8 +582,9 @@ impl Start {
         // Initialize the node.
         match node_type {
             NodeType::Validator => Node::new_validator(node_ip, self.bft, rest_ip, self.rest_rps, account, &trusted_peers, &trusted_validators, genesis, cdn, storage_mode, self.allow_external_peers, dev_txs, shutdown.clone()).await,
-            NodeType::Prover => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone()).await,
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
+            _ if node_type.is_prover() => Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type).await,
+            _ => bail!("Invalid node type specified: {}", node_type),
         }
     }
 
@@ -654,12 +655,10 @@ fn load_or_compute_genesis<N: Network>(
     preimage.extend(genesis_private_key.to_bytes_le()?);
     preimage.extend(committee.to_bytes_le()?);
     preimage.extend(&to_bytes_le![public_balances.iter().collect::<Vec<(_, _)>>()]?);
-    preimage.extend(&to_bytes_le![
-        bonded_balances
-            .iter()
-            .flat_map(|(staker, (validator, withdrawal, amount))| to_bytes_le![staker, validator, withdrawal, amount])
-            .collect::<Vec<_>>()
-    ]?);
+    preimage.extend(&to_bytes_le![bonded_balances
+        .iter()
+        .flat_map(|(staker, (validator, withdrawal, amount))| to_bytes_le![staker, validator, withdrawal, amount])
+        .collect::<Vec<_>>()]?);
 
     // Input the parameters' metadata based on network
     match N::ID {
@@ -766,10 +765,10 @@ mod tests {
 
         let config = Start::try_parse_from(["snarkos", "--peers", "1.2.3.4:5,6.7.8.9:0"].iter()).unwrap();
         assert!(config.parse_trusted_peers().is_ok());
-        assert_eq!(config.parse_trusted_peers().unwrap(), vec![
-            SocketAddr::from_str("1.2.3.4:5").unwrap(),
-            SocketAddr::from_str("6.7.8.9:0").unwrap()
-        ]);
+        assert_eq!(
+            config.parse_trusted_peers().unwrap(),
+            vec![SocketAddr::from_str("1.2.3.4:5").unwrap(), SocketAddr::from_str("6.7.8.9:0").unwrap()]
+        );
     }
 
     #[test]
@@ -784,10 +783,10 @@ mod tests {
 
         let config = Start::try_parse_from(["snarkos", "--validators", "1.2.3.4:5,6.7.8.9:0"].iter()).unwrap();
         assert!(config.parse_trusted_validators().is_ok());
-        assert_eq!(config.parse_trusted_validators().unwrap(), vec![
-            SocketAddr::from_str("1.2.3.4:5").unwrap(),
-            SocketAddr::from_str("6.7.8.9:0").unwrap()
-        ]);
+        assert_eq!(
+            config.parse_trusted_validators().unwrap(),
+            vec![SocketAddr::from_str("1.2.3.4:5").unwrap(), SocketAddr::from_str("6.7.8.9:0").unwrap()]
+        );
     }
 
     #[test]
