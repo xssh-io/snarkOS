@@ -3721,6 +3721,7 @@ dependencies = [
  "snarkos-node-sync",
  "snarkos-node-tcp",
  "snarkvm",
+ "thiserror",
  "time",
  "tokio",
  "tokio-util",
