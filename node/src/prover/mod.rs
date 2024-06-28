@@ -44,6 +44,7 @@ use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
 use snarkos_node_bft::helpers::fmt_id;
+use snarkvm::prelude::Address;
 use std::{
     net::SocketAddr,
     sync::{
@@ -78,6 +79,8 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     /// Node Type
     node_type: NodeType,
+    /// pool_address
+    pool_address: Option<Address<N>>,
     /// PhantomData.
     _phantom: PhantomData<C>,
 }
@@ -92,6 +95,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
         node_type: NodeType,
+        pool_address: Option<Address<N>>,
     ) -> Result<Self> {
         // Initialize the signal handler.
         let signal_node = Self::handle_signals(shutdown.clone());
@@ -129,6 +133,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             handles: Default::default(),
             shutdown,
             node_type,
+            pool_address,
             _phantom: Default::default(),
         };
         // Initialize the routing.
