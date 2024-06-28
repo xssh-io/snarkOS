@@ -130,13 +130,13 @@ version = "0.2"
 path = "../sync"
 features = ["test"]
 
-[dev-dependencies.snarkos-node-router]
-path = "."
-features = ["test"]
+# [dev-dependencies.snarkos-node-router]
+# path = "."
+# features = ["test"]
 
-[dev-dependencies.snarkos-node-router-messages]
-path = "messages"
-features = ["test"]
+# [dev-dependencies.snarkos-node-router-messages]
+# path = "messages"
+# features = ["test"]
 
 [dev-dependencies.tracing-subscriber]
 version = "0.3"
