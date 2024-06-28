@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Prover;
+mod error;
+mod handle;
+mod route;
+
+use crate::prover::http::error::ProverError;
+use crate::{NodeInterface, Prover};
 use aide::{
     axum::{
         routing::{get_with, post_with},
@@ -26,7 +31,7 @@ use axum::{extract::State, http::StatusCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkos_node_router_core::error::ServerError;
-use snarkos_node_router_core::{extractor::Json, try_api};
+use snarkos_node_router_core::extractor::Json;
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
 use snarkvm::prelude::{Address, Network};
@@ -34,7 +39,7 @@ use std::{convert::Infallible, ops::Deref};
 
 pub fn init_routes<N: Network, C: ConsensusStorage<N>>(prover: Prover<N, C>) -> ApiRouter {
     ApiRouter::new()
-        .api_route("/submit_solution", post_with(submit_handler::<N, C>, submit_docs))
+        .api_route("/submit_solution", post_with(submit_solution_handler::<N, C>, submit_docs))
         .api_route("/pool_address", get_with(pool_address_handler, pool_address_docs))
         .with_state(prover)
 }
@@ -111,29 +116,28 @@ impl<N: Network> From<PartialSolution<N>> for PartialSolutionMessage {
         }
     }
 }
-//
-// unsafe fn encode_field<T>(t: &T) -> String {
-//     let slice = std::slice::from_raw_parts(t as *const T as *const u8, std::mem::size_of::<T>());
-//     STANDARD.encode(slice)
-// }
-// unsafe fn decode_field<T>(s: &[u8]) -> eyre::Result<T> {
-//     let slice = STANDARD.decode(s)?;
-//     let ptr = slice.as_ptr() as *const T;
-//     Ok(std::ptr::read(ptr))
-// }
+
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct SubmitSolutionResponse {
     pub msg: String,
 }
 
-async fn submit_handler<N: Network, C: ConsensusStorage<N>>(
+async fn submit_solution_handler<N: Network, C: ConsensusStorage<N>>(
     prover: State<Prover<N, C>>,
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
-    let solution = try_api!(payload.get_solution().map_err(|e| {
-        warn!("Invalid solution: {:?}", payload);
-        ServerError::<Infallible>::InvalidRequest(e.to_string())
-    }));
+    let solution = match payload.get_solution() {
+        Ok(ok) => ok,
+        Err(e) => {
+            warn!("Invalid solution: {:?}", payload);
+            return ServerError::<Infallible>::InvalidRequest(e.to_string()).into_response();
+        }
+    };
+    if solution.address() != prover.address() {
+        return ServerError::AppError(ProverError::InvalidPoolAddress(payload.solution.partial_solution.address))
+            .into_response();
+    }
+
     prover.broadcast_solution(solution).await;
     // TODO: enqueue solution to database and message queue
     let response = SubmitSolutionResponse { msg: "submitted".into() };
@@ -150,10 +154,7 @@ pub struct PoolAddressResponse {
 }
 async fn pool_address_handler<N: Network, C: ConsensusStorage<N>>(prover: State<Prover<N, C>>) -> impl IntoApiResponse {
     let prover: &Prover<N, C> = prover.deref();
-    let pool_address = match prover.pool_address {
-        Some(address) => address.to_string(),
-        None => "".into(),
-    };
+    let pool_address = prover.address().to_string();
     let response = PoolAddressResponse { pool_address };
     (StatusCode::OK, Json(response)).into_response()
 }
