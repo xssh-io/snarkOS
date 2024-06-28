@@ -39,9 +39,10 @@ use snarkvm::{
 };
 
 use self::http::handle::SubmitSolutionRequest;
+use crate::handle::PoolAddressResponse;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use colored::Colorize;
 use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
@@ -101,7 +102,6 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
         node_type: NodeType,
-        pool_address: Option<Address<N>>,
         pool_base_url: Option<String>,
     ) -> Result<Self> {
         // Initialize the signal handler.
@@ -127,6 +127,16 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         .await?;
         // Compute the maximum number of puzzle instances.
         let max_puzzle_instances = num_cpus::get().saturating_sub(2).clamp(1, 6);
+        let client = reqwest::Client::new();
+        let pool_address;
+        if let Some(base_url) = pool_base_url.as_ref() {
+            let response = client.get(format!("{}/pool_address", base_url)).send().await?;
+            let resp: PoolAddressResponse = response.json().await?;
+            pool_address =
+                Some(resp.pool_address.parse().with_context(|| format!("Invalid address: {}", resp.pool_address))?);
+        } else {
+            pool_address = None;
+        }
         // Initialize the node.
         let node = Self {
             router,
