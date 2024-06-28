@@ -17,9 +17,8 @@ then
 fi
 
 POOL_BASE_URL="http://localhost:3030"
-POOL_ADDRESS="0x"
 
-COMMAND="cargo run --release -- start --nodisplay --prover-pool-worker --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --pool-address ${POOL_ADDRESS}"
+COMMAND="cargo run --release -- start --nodisplay --prover-pool-worker --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}
 
 for word in $*;
 do

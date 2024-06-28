@@ -101,10 +101,6 @@ pub struct Start {
     #[clap(long = "private-key-file")]
     pub private_key_file: Option<PathBuf>,
 
-    /// Specify the pool address of the node
-    #[clap(long = "pool-address")]
-    pub pool_address: Option<String>,
-
     /// Specify the pool base URL of the node
     #[clap(long = "pool-base-url")]
     pub pool_base_url: Option<String>,
@@ -325,12 +321,6 @@ impl Start {
                     private_key
                 })
             }
-        }
-    }
-    fn parse_pool_address<N: Network>(&self) -> Result<Address<N>> {
-        match &self.pool_address {
-            Some(s) => Address::from_str(s.trim()),
-            None => bail!("Missing the '--pool-public-key' argument"),
         }
     }
 
@@ -627,7 +617,7 @@ impl Start {
                     _ => None
                 };
 
-                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, pool_address, pool_base_url).await
+                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, pool_base_url).await
             },
             _ => bail!("Invalid node type specified: {}", node_type),
         }
