@@ -14,9 +14,8 @@
 
 use std::sync::Arc;
 
-use aide::axum::routing::get;
 use aide::{
-    axum::{ApiRouter, IntoApiResponse},
+    axum::{routing::get, ApiRouter, IntoApiResponse},
     openapi::OpenApi,
     scalar::Scalar,
 };
