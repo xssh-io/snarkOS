@@ -110,6 +110,9 @@ version = "=2.2.7"
 path = "./router"
 version = "=2.2.7"
 
+[dependencies.snarkos-node-router-core]
+path = "./router/core"
+
 [dependencies.snarkos-node-sync]
 path = "./sync"
 version = "=2.2.7"

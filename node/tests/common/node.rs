@@ -44,6 +44,8 @@ pub async fn prover() -> Prover<CurrentNetwork, ConsensusMemory<CurrentNetwork>>
         sample_genesis_block(),
         StorageMode::Production,
         Default::default(),
+        snarkos_node_router::messages::NodeType::Prover,
+        None,
     )
     .await
     .expect("couldn't create prover instance")
