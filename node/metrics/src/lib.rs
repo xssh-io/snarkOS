@@ -20,6 +20,7 @@ use std::{
     },
 };
 
+use clickhouse_rs::{Block as DbBlock, ClientHandle};
 use parking_lot::Mutex;
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
@@ -51,6 +52,7 @@ pub fn initialize_metrics() {
     // Register the metrics so they exist on init.
     for name in GAUGE_NAMES {
         register_gauge(name);
+        // init_clickhouse(client, name);
     }
     for name in COUNTER_NAMES {
         register_counter(name);
@@ -101,6 +103,22 @@ pub fn update_block_metrics<N: Network>(block: &Block<N>) {
     // Update aborted transactions and solutions.
     increment_gauge(blocks::ABORTED_TRANSACTIONS, block.aborted_transaction_ids().len() as f64);
     increment_gauge(blocks::ABORTED_SOLUTIONS, block.aborted_solution_ids().len() as f64);
+}
+
+pub async fn init_clickhouse(mut client: ClientHandle, gauge_name: &str) {
+    let create_table_query = format!(
+        "CREATE TABLE IF NOT EXISTS {} ( \
+            id UInt32, \
+            name String \
+        ) ENGINE = MergeTree \
+        ORDER BY id",
+        gauge_name
+    );
+    client.execute(create_table_query.as_str()).await.unwrap();
+}
+pub async fn add_clickhouse_record(mut client: ClientHandle, name: &str, label_keys: Vec<String>, values: Vec<String>) {
+    let block = DbBlock::new().column("label_keys", label_keys).column("values", values);
+    client.insert(name, block).await.unwrap();
 }
 
 pub fn add_transmission_latency_metric<N: Network>(
