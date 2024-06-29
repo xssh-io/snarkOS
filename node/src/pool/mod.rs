@@ -21,7 +21,7 @@ use crate::tcp::{
 use crate::traits::NodeInterface;
 pub use http::*;
 use snarkos_account::Account;
-use snarkos_node_bft::ledger_service::ProverLedgerService;
+use snarkos_node_bft::ledger_service::CoreLedgerService;
 use snarkos_node_router::{
     messages::{Message, NodeType, UnconfirmedSolution},
     Heartbeat, Inbound, Outbound, Router, Routing,
@@ -35,16 +35,17 @@ use snarkvm::{
         store::ConsensusStorage,
         Network,
     },
-    synthesizer::VM,
 };
 
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
 use anyhow::Result;
-use core::{marker::PhantomData, time::Duration};
-use parking_lot::{Mutex, RwLock};
+use core::time::Duration;
+use parking_lot::Mutex;
 use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
+use snarkvm::prelude::Ledger;
+use std::future::Future;
 use std::{
     net::SocketAddr,
     sync::{
@@ -54,9 +55,11 @@ use std::{
 };
 use tokio::task::JoinHandle;
 
-/// A prover is a light node, capable of producing proofs for consensus.
+/// A pool is a light node, capable of dispatching puzzles to the pool workers
 #[derive(Clone)]
 pub struct Pool<N: Network, C: ConsensusStorage<N>> {
+    /// The ledger of the node.
+    ledger: Ledger<N, C>,
     /// The router of the node.
     router: Router<N>,
     /// The sync module.
@@ -65,10 +68,6 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     genesis: Block<N>,
     /// The puzzle.
     puzzle: Puzzle<N>,
-    /// The latest epoch hash.
-    latest_epoch_hash: Arc<RwLock<Option<N::BlockHash>>>,
-    /// The latest block header.
-    latest_block_header: Arc<RwLock<Option<Header<N>>>>,
 
     /// The spawned handles.
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
@@ -76,8 +75,6 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     pool_base_url: String,
     ws_config: WsConfig,
-    /// PhantomData.
-    _phantom: PhantomData<C>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
@@ -87,6 +84,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         account: Account<N>,
         trusted_peers: &[SocketAddr],
         genesis: Block<N>,
+        cdn: Option<String>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
         pool_base_url: String,
@@ -94,17 +92,32 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         // Initialize the signal handler.
         let signal_node = Self::handle_signals(shutdown.clone());
 
+        // Initialize the ledger.
+        let ledger = Ledger::<N, C>::load(genesis.clone(), storage_mode.clone())?;
+
+        // Initialize the CDN.
+        if let Some(base_url) = cdn {
+            // Sync the ledger with the CDN.
+            if let Err((_, error)) =
+                snarkos_node_cdn::sync_ledger_with_cdn(&base_url, ledger.clone(), shutdown.clone()).await
+            {
+                crate::log_clean_error(&storage_mode);
+                return Err(error);
+            }
+        }
+
         // Initialize the ledger service.
-        let ledger_service = Arc::new(ProverLedgerService::new());
+        let ledger_service = Arc::new(CoreLedgerService::<N, C>::new(ledger.clone(), shutdown.clone()));
         // Initialize the sync module.
         let sync = BlockSync::new(BlockSyncMode::Router, ledger_service.clone());
-        // Determine if the prover should allow external peers.
+        // Determine if the pool should allow external peers.
         let allow_external_peers = true;
 
         // Initialize the node router.
         let router = Router::new(
             node_ip,
-            NodeType::Pool,
+            // pretend to be Client
+            NodeType::Client,
             account,
             trusted_peers,
             Self::MAXIMUM_NUMBER_OF_PEERS as u16,
@@ -112,26 +125,22 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             matches!(storage_mode, StorageMode::Development(_)),
         )
         .await?;
-
         // Initialize the node.
         let node = Self {
+            ledger: ledger.clone(),
             router,
             sync: Arc::new(sync),
             genesis,
-            puzzle: VM::<N, C>::new_puzzle()?,
-            latest_epoch_hash: Default::default(),
-            latest_block_header: Default::default(),
+            puzzle: ledger.puzzle().clone(),
             handles: Default::default(),
             shutdown,
             pool_base_url,
             ws_config: WsConfig::new(),
-            _phantom: Default::default(),
         };
         // Initialize the routing.
         node.initialize_routing().await;
-
-        node.enable_http_request().await;
-
+        // Initialize the sync module.
+        node.initialize_sync();
         // Initialize the puzzle.
         node.enable_http_request().await;
         // Initialize the notification message loop.
@@ -141,6 +150,12 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         // Return the node.
         Ok(node)
     }
+
+    /// Returns the ledger.
+    pub fn ledger(&self) -> &Ledger<N, C> {
+        &self.ledger
+    }
+
     async fn enable_http_request(&self) {
         let config = ServeAxumConfig {
             title: "Aleo Prover Pool".to_string(),
@@ -154,30 +169,30 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             }
         });
     }
-}
+    /// Initializes the sync pool.
+    fn initialize_sync(&self) {
+        // Start the sync loop.
+        let node = self.clone();
+        self.handles.lock().push(tokio::spawn(async move {
+            loop {
+                // If the Ctrl-C handler registered the signal, stop the node.
+                if node.shutdown.load(Ordering::Acquire) {
+                    info!("Shutting down block production");
+                    break;
+                }
 
-#[async_trait]
-impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Pool<N, C> {
-    /// Shuts down the node.
-    async fn shut_down(&self) {
-        info!("Shutting down...");
-
-        // Shut down the puzzle.
-        debug!("Shutting down the puzzle...");
-        self.shutdown.store(true, Ordering::Relaxed);
-
-        // Abort the tasks.
-        debug!("Shutting down the prover...");
-        self.handles.lock().iter().for_each(|handle| handle.abort());
-
-        // Shut down the router.
-        self.router.shut_down().await;
-
-        info!("Node has shut down.");
+                // Sleep briefly to avoid triggering spam detection.
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                // Perform the sync routine.
+                node.sync.try_block_sync(&node).await;
+            }
+        }));
     }
-}
 
-impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
+    /// Spawns a task with the given future; it should only be used for long-running tasks.
+    pub fn spawn<T: Future<Output = ()> + Send + 'static>(&self, future: T) {
+        self.handles.lock().push(tokio::spawn(future));
+    }
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>) {
         // Prepare the unconfirmed solution message.
@@ -187,5 +202,26 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         });
         // Propagate the "UnconfirmedSolution".
         self.propagate(message, &[]);
+    }
+}
+
+#[async_trait]
+impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Pool<N, C> {
+    /// Shuts down the node.
+    async fn shut_down(&self) {
+        info!("Shutting down...");
+
+        // Shut down the node.
+        trace!("Shutting down the node...");
+        self.shutdown.store(true, Ordering::Release);
+
+        // Abort the tasks.
+        trace!("Shutting down the pool...");
+        self.handles.lock().iter().for_each(|handle| handle.abort());
+
+        // Shut down the router.
+        self.router.shut_down().await;
+
+        info!("Node has shut down.");
     }
 }
