@@ -3901,6 +3901,7 @@ dependencies = [
  "snarkos-node-metrics",
  "snarkos-node-rest",
  "snarkos-node-router",
+ "snarkos-node-router-core",
  "snarkos-node-sync",
  "snarkos-node-tcp",
  "snarkvm",
