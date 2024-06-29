@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{traits::NodeInterface, Client, Prover, Validator};
+use crate::{traits::NodeInterface, Client, Pool, Prover, Validator};
 use snarkos_account::Account;
 use snarkos_node_router::messages::NodeType;
 use snarkvm::prelude::{
@@ -33,6 +33,8 @@ pub enum Node<N: Network> {
     Validator(Arc<Validator<N, ConsensusDB<N>>>),
     /// A prover is a light node, capable of producing proofs for consensus.
     Prover(Arc<Prover<N, ConsensusMemory<N>>>),
+    /// A prover pool is a collection of prover nodes.
+    Pool(Arc<Pool<N, ConsensusMemory<N>>>),
     /// A client node is a full node, capable of querying with the network.
     Client(Arc<Client<N, ConsensusDB<N>>>),
 }
@@ -91,6 +93,20 @@ impl<N: Network> Node<N> {
         )))
     }
 
+    /// Initializes a new prover pool.
+    pub async fn new_pool(
+        node_ip: SocketAddr,
+        account: Account<N>,
+        trusted_peers: &[SocketAddr],
+        genesis: Block<N>,
+        storage_mode: StorageMode,
+        shutdown: Arc<AtomicBool>,
+        pool_base_url: String,
+    ) -> Result<Self> {
+        Ok(Self::Pool(Arc::new(
+            Pool::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, pool_base_url).await?,
+        )))
+    }
     /// Initializes a new client node.
     pub async fn new_client(
         node_ip: SocketAddr,
@@ -114,6 +130,7 @@ impl<N: Network> Node<N> {
         match self {
             Self::Validator(validator) => validator.node_type(),
             Self::Prover(prover) => prover.node_type(),
+            Self::Pool(pool) => pool.node_type(),
             Self::Client(client) => client.node_type(),
         }
     }
@@ -123,6 +140,7 @@ impl<N: Network> Node<N> {
         match self {
             Self::Validator(node) => node.private_key(),
             Self::Prover(node) => node.private_key(),
+            Self::Pool(node) => node.private_key(),
             Self::Client(node) => node.private_key(),
         }
     }
@@ -132,6 +150,7 @@ impl<N: Network> Node<N> {
         match self {
             Self::Validator(node) => node.view_key(),
             Self::Prover(node) => node.view_key(),
+            Self::Pool(node) => node.view_key(),
             Self::Client(node) => node.view_key(),
         }
     }
@@ -141,6 +160,7 @@ impl<N: Network> Node<N> {
         match self {
             Self::Validator(node) => node.address(),
             Self::Prover(node) => node.address(),
+            Self::Pool(node) => node.address(),
             Self::Client(node) => node.address(),
         }
     }
@@ -150,6 +170,7 @@ impl<N: Network> Node<N> {
         match self {
             Self::Validator(node) => node.is_dev(),
             Self::Prover(node) => node.is_dev(),
+            Self::Pool(node) => node.is_dev(),
             Self::Client(node) => node.is_dev(),
         }
     }
