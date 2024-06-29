@@ -78,8 +78,6 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
-    /// Node Type
-    node_type: NodeType,
     /// pool_address
     pool_address: Option<Address<N>>,
     pool_base_url: Option<String>,
@@ -97,7 +95,6 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         genesis: Block<N>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
-        node_type: NodeType,
         pool_base_url: Option<String>,
     ) -> Result<Self> {
         // Initialize the signal handler.
@@ -113,7 +110,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         // Initialize the node router.
         let router = Router::new(
             node_ip,
-            node_type,
+            NodeType::Prover,
             account,
             trusted_peers,
             Self::MAXIMUM_NUMBER_OF_PEERS as u16,
@@ -145,7 +142,6 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             max_puzzle_instances: u8::try_from(max_puzzle_instances)?,
             handles: Default::default(),
             shutdown,
-            node_type,
             pool_address,
             pool_base_url,
             http_client: client,
@@ -267,11 +263,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             fmt_id(epoch_hash),
             format!("(Coinbase Target {coinbase_target}, Proof Target {proof_target})").dimmed()
         );
-        let address = match self.node_type {
-            NodeType::ProverPoolWorker => self.pool_address.expect("Pool Address is not set"),
-            NodeType::Prover | NodeType::Pool => self.address(),
-            _ => unreachable!(),
-        };
+        let address = self.pool_address.unwrap_or(self.address());
 
         // Compute the solution.
         let result = self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)).ok().and_then(|solution| {
@@ -286,27 +278,24 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
 
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>) {
-        match self.node_type {
-            NodeType::ProverPoolWorker => {
-                if let Err(err) = self
-                    .http_client
-                    .post(format!("{}/submit_solution", self.pool_base_url.as_ref().unwrap()))
-                    .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
-                    .send()
-                    .await
-                {
-                    error!("Failed to submit solution: {}", err);
-                }
+        if let Some(pool_base_url) = self.pool_base_url.as_deref() {
+            if let Err(err) = self
+                .http_client
+                .post(format!("{}/submit_solution", pool_base_url))
+                .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
+                .send()
+                .await
+            {
+                error!("Failed to submit solution: {}", err);
             }
-            _ => {
-                // Prepare the unconfirmed solution message.
-                let message = Message::UnconfirmedSolution(UnconfirmedSolution {
-                    solution_id: solution.id(),
-                    solution: Data::Object(solution),
-                });
-                // Propagate the "UnconfirmedSolution".
-                self.propagate(message, &[]);
-            }
+        } else {
+            // Prepare the unconfirmed solution message.
+            let message = Message::UnconfirmedSolution(UnconfirmedSolution {
+                solution_id: solution.id(),
+                solution: Data::Object(solution),
+            });
+            // Propagate the "UnconfirmedSolution".
+            self.propagate(message, &[]);
         }
     }
 
