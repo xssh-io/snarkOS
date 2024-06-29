@@ -1,4 +1,4 @@
-use crate::{NodeInterface, Prover};
+use crate::{NodeInterface, Pool};
 use anyhow::{bail, Error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ pub trait ProverErased: Send + Sync {
     fn pool_address(&self) -> String;
 }
 #[async_trait]
-impl<N: Network, C: ConsensusStorage<N>> ProverErased for Prover<N, C> {
+impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
     async fn submit_solution(&self, address: String, solution: SolutionMessage) -> Result<(), Error> {
         let solution = match solution.try_into() {
             Ok(ok) => ok,

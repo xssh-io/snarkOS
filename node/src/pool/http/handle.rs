@@ -1,5 +1,5 @@
+use crate::error::PoolError;
 use crate::model::{ProverErased, SolutionMessage};
-use crate::prover::http::error::ProverError;
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use axum::extract::State;
@@ -37,7 +37,7 @@ pub async fn submit_solution_handler(
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
     if payload.address != prover.pool_address() {
-        return ServerError::AppError(ProverError::InvalidPoolAddress(payload.solution.partial_solution.address))
+        return ServerError::AppError(PoolError::InvalidPoolAddress(payload.solution.partial_solution.address))
             .into_response();
     }
 

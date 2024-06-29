@@ -36,6 +36,9 @@ pub use client::*;
 mod prover;
 pub use prover::*;
 
+mod pool;
+pub use pool::*;
+
 mod validator;
 pub use validator::*;
 

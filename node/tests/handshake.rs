@@ -18,7 +18,7 @@
 mod common;
 use common::{node::*, test_peer::TestPeer};
 
-use snarkos_node::{Client, Prover, Validator};
+use snarkos_node::{Client, Pool, Validator};
 use snarkos_node_router::Outbound;
 use snarkos_node_tcp::P2P;
 use snarkvm::prelude::{store::helpers::memory::ConsensusMemory, MainnetV0 as CurrentNetwork};
@@ -57,7 +57,7 @@ macro_rules! impl_connect {
     };
 }
 
-impl_connect!(Client, Prover, Validator);
+impl_connect!(Client, Pool, Validator);
 
 // Implement the `Connect` trait for the test peer.
 #[async_trait::async_trait]
@@ -195,11 +195,19 @@ async fn simultaneous_connection_attempt() {
     // Prepare connection attempts.
     let node1_clone = node1.clone();
     let conn1 = tokio::spawn(async move {
-        if let Some(conn_task) = node1_clone.router().connect(addr2) { conn_task.await.unwrap() } else { false }
+        if let Some(conn_task) = node1_clone.router().connect(addr2) {
+            conn_task.await.unwrap()
+        } else {
+            false
+        }
     });
     let node2_clone = node2.clone();
     let conn2 = tokio::spawn(async move {
-        if let Some(conn_task) = node2_clone.router().connect(addr1) { conn_task.await.unwrap() } else { false }
+        if let Some(conn_task) = node2_clone.router().connect(addr1) {
+            conn_task.await.unwrap()
+        } else {
+            false
+        }
     });
 
     // Attempt to connect both nodes to one another at the same time.
@@ -253,15 +261,27 @@ async fn duplicate_connection_attempts() {
     // Prepare connection attempts.
     let node1_clone = node1.clone();
     let conn1 = tokio::spawn(async move {
-        if let Some(conn_task) = node1_clone.router().connect(addr2) { conn_task.await.unwrap() } else { false }
+        if let Some(conn_task) = node1_clone.router().connect(addr2) {
+            conn_task.await.unwrap()
+        } else {
+            false
+        }
     });
     let node1_clone = node1.clone();
     let conn2 = tokio::spawn(async move {
-        if let Some(conn_task) = node1_clone.router().connect(addr2) { conn_task.await.unwrap() } else { false }
+        if let Some(conn_task) = node1_clone.router().connect(addr2) {
+            conn_task.await.unwrap()
+        } else {
+            false
+        }
     });
     let node1_clone = node1.clone();
     let conn3 = tokio::spawn(async move {
-        if let Some(conn_task) = node1_clone.router().connect(addr2) { conn_task.await.unwrap() } else { false }
+        if let Some(conn_task) = node1_clone.router().connect(addr2) {
+            conn_task.await.unwrap()
+        } else {
+            false
+        }
     });
 
     // Attempt to connect the 1st node to the other one several times at once.

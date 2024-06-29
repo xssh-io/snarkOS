@@ -84,11 +84,8 @@ pub struct Start {
     #[clap(long = "prover")]
     pub prover: bool,
     /// Specify this node as a prover-pool
-    #[clap(long = "prover-pool")]
-    pub prover_pool: bool,
-    /// Specify this node as a prover-pool
-    #[clap(long = "prover-pool-worker")]
-    pub prover_pool_worker: bool,
+    #[clap(long = "pool")]
+    pub pool: bool,
 
     /// Specify this node as a client
     #[clap(long = "client")]
@@ -261,22 +258,14 @@ impl Start {
     /// Returns the CDN to prefetch initial blocks from, from the given configurations.
     fn parse_cdn(&self) -> Option<String> {
         // Determine if the node type is not declared.
-        let is_no_node_type =
-            !(self.validator || self.prover || self.client || self.prover_pool || self.prover_pool_worker);
+        let is_no_node_type = !(self.validator || self.prover || self.client || self.pool);
 
         // Disable CDN if:
         //  1. The node is in development mode.
         //  2. The user has explicitly disabled CDN.
         //  3. The node is a prover (no need to sync).
         //  4. The node type is not declared (defaults to client) (no need to sync).
-        if self.dev.is_some()
-            || self.cdn.is_empty()
-            || self.nocdn
-            || self.prover
-            || self.prover_pool
-            || self.prover_pool_worker
-            || is_no_node_type
-        {
+        if self.dev.is_some() || self.cdn.is_empty() || self.nocdn || self.prover || is_no_node_type {
             None
         }
         // Enable the CDN otherwise.
@@ -503,11 +492,13 @@ impl Start {
         if self.validator {
             NodeType::Validator
         } else if self.prover {
-            NodeType::Prover
-        } else if self.prover_pool {
-            NodeType::ProverPool
-        } else if self.prover_pool_worker {
-            NodeType::ProverPoolWorker
+            if self.pool_base_url.is_some() {
+                NodeType::ProverPoolWorker
+            } else {
+                NodeType::Prover
+            }
+        } else if self.pool {
+            NodeType::Pool
         } else {
             NodeType::Client
         }
@@ -609,12 +600,17 @@ impl Start {
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
             _ if node_type.is_prover() => {
                 let pool_base_url = match node_type {
-                    NodeType::ProverPool | NodeType::ProverPoolWorker => Some(self.pool_base_url.clone().context("could not find pool-base-url")?),
+                     NodeType::ProverPoolWorker => Some(self.pool_base_url.clone().context("could not find pool-base-url")?),
                     _ => None
                 };
 
                 Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, pool_base_url).await
             },
+            NodeType::Pool => {
+                let pool_base_url = self.pool_base_url.clone().context("could not find pool-base-url")?;
+                Node::new_pool(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), pool_base_url).await
+            },
+
             _ => bail!("Invalid node type specified: {}", node_type),
         }
     }
