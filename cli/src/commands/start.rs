@@ -599,7 +599,7 @@ impl Start {
             },
             NodeType::Pool => {
                 let pool_base_url = self.pool_base_url.clone().context("could not find pool-base-url")?;
-                Node::new_pool(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), pool_base_url).await
+                Node::new_pool(node_ip, account, &trusted_peers, genesis, cdn, storage_mode, shutdown.clone(), pool_base_url).await
             },
         }
     }
