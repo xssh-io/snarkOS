@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
 use snarkvm::prelude::{Address, Network};
+use std::net::SocketAddr;
 
 /// A helper struct around a puzzle solution.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -73,12 +74,22 @@ impl<N: Network> From<PartialSolution<N>> for PartialSolutionMessage {
 }
 #[async_trait]
 pub trait ProverErased: Send + Sync {
-    async fn submit_solution(&self, address: String, solution: SolutionMessage) -> Result<(), Error>;
+    async fn submit_solution(
+        &self,
+        peer_ip: SocketAddr,
+        address: String,
+        solution: SolutionMessage,
+    ) -> Result<(), Error>;
     fn pool_address(&self) -> String;
 }
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
-    async fn submit_solution(&self, address: String, solution: SolutionMessage) -> Result<(), Error> {
+    async fn submit_solution(
+        &self,
+        peer_ip: SocketAddr,
+        address: String,
+        solution: SolutionMessage,
+    ) -> Result<(), Error> {
         let solution = match solution.try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),
@@ -86,8 +97,7 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
         if address != self.address().to_string() {
             bail!("Invalid pool address: {}", address);
         }
-        self.broadcast_solution(solution).await;
-        Ok(())
+        self.confirm_and_broadcast_solution(peer_ip, solution).await
     }
 
     fn pool_address(&self) -> String {

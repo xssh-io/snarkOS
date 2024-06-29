@@ -1,31 +1,19 @@
-// Copyright (C) 2019-2023 Aleo Systems Inc.
-// This file is part of the snarkOS library.
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at:
-// http://www.apache.org/licenses/LICENSE-2.0
-
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 use crate::docs::docs_routes;
-use aide::{
-    axum::ApiRouter,
-    openapi::{Info, OpenApi},
-};
-use axum::{extract::Request, Extension, ServiceExt};
-use axum_client_ip::SecureClientIpSource;
+use crate::extractor::ip::AxumClientIpSourceConfig;
+use aide::axum::ApiRouter;
+use aide::openapi::{Info, OpenApi};
+use axum::extract::Request;
+use axum::{Extension, ServiceExt};
 use eyre::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower::{Layer, ServiceBuilder};
-use tower_http::{cors::CorsLayer, normalize_path::NormalizePathLayer, trace::TraceLayer};
+use tower_http::cors::CorsLayer;
+use tower_http::normalize_path::NormalizePathLayer;
+use tower_http::trace::TraceLayer;
 use tracing::*;
 use url::Url;
 
@@ -36,20 +24,31 @@ pub struct ServeAxumConfig {
     pub title: String,
     #[serde_as(as = "serde_with::DisplayFromStr")]
     pub url: Url,
+    #[serde(default)]
+    pub ip_source: AxumClientIpSourceConfig,
+}
+impl ServeAxumConfig {
+    pub fn empty() -> Self {
+        Self {
+            title: String::new(),
+            url: Url::parse("http://localhost:8080").unwrap(),
+            ip_source: AxumClientIpSourceConfig::Insecure,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub struct ServeAxum {
     title: String,
     url: Url,
+    ip: AxumClientIpSourceConfig,
 }
 impl ServeAxum {
     pub fn new(config: ServeAxumConfig) -> Self {
         aide::gen::extract_schemas(true);
         aide::gen::on_error(|error| warn!("Error generating openapi.json: {}", error));
 
-        Self { title: config.title, url: config.url }
+        Self { title: config.title, url: config.url, ip: config.ip_source }
     }
-
     pub async fn serve(self, routes: ApiRouter) -> Result<()> {
         let addr = self.url.authority();
         ensure!(self.url.port().is_some(), "Port is not specified in {}", self.url);
@@ -60,14 +59,17 @@ impl ServeAxum {
         let docs_url = self.url.join("docs")?;
         let docs_path = docs_url.path();
 
-        let router = ApiRouter::new()
+        let mut router = ApiRouter::new()
             .nest(base_path, routes)
-            .nest(docs_path, docs_routes(docs_path, &self.title))
+            .nest(docs_path, docs_routes(&docs_path, &self.title))
             .finish_api(&mut api)
             .layer(Extension(Arc::new(api)))
             .layer(cors)
-            .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
-            .layer(SecureClientIpSource::ConnectInfo.into_extension());
+            .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
+
+        if let AxumClientIpSourceConfig::Secure(config) = self.ip {
+            router = router.layer(config.into_extension());
+        }
 
         // NormalizePathLayer must be applied before the Router
         let router = NormalizePathLayer::trim_trailing_slash().layer(router);

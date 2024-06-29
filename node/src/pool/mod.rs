@@ -24,7 +24,7 @@ use snarkos_account::Account;
 use snarkos_node_bft::ledger_service::CoreLedgerService;
 use snarkos_node_router::{
     messages::{Message, NodeType, UnconfirmedSolution},
-    Heartbeat, Inbound, Outbound, Router, Routing,
+    Heartbeat, Inbound, Outbound, Router, Routing, SYNC_LENIENCY,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
 use snarkvm::{
@@ -40,9 +40,10 @@ use snarkvm::{
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use core::time::Duration;
 use parking_lot::Mutex;
+use snarkos_node_router_core::extractor::ip::{AxumClientIpSourceConfig, SecureClientIpSource};
 use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 use snarkvm::prelude::Ledger;
 use std::future::Future;
@@ -142,7 +143,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         // Initialize the sync module.
         node.initialize_sync();
         // Initialize the puzzle.
-        node.enable_http_request().await;
+        node.enable_http_server().await;
         // Initialize the notification message loop.
         node.handles.lock().push(crate::start_notification_message_loop());
         // Pass the node to the signal handler.
@@ -156,15 +157,17 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         &self.ledger
     }
 
-    async fn enable_http_request(&self) {
+    async fn enable_http_server(&self) {
         let config = ServeAxumConfig {
             title: "Aleo Prover Pool".to_string(),
             url: self.pool_base_url.parse().expect("failed to parse url"),
+            ip_source: AxumClientIpSourceConfig::Secure(SecureClientIpSource::ConnectInfo),
         };
         let this = self.clone();
         let ws_config = self.ws_config.clone();
         tokio::spawn(async move {
-            if let Err(err) = ServeAxum::new(config).serve(init_routes(Arc::new(this), ws_config)).await {
+            let routes = init_routes(Arc::new(this), ws_config);
+            if let Err(err) = ServeAxum::new(config).serve(routes).await {
                 error!("Failed to serve HTTP: {:?}", err);
             }
         });
@@ -194,14 +197,39 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         self.handles.lock().push(tokio::spawn(future));
     }
     /// Broadcasts the solution to the network.
-    async fn broadcast_solution(&self, solution: Solution<N>) {
+    async fn confirm_and_broadcast_solution(&self, peer_ip: SocketAddr, solution: Solution<N>) -> Result<()> {
+        // Do not process unconfirmed solutions if the node is too far behind.
+        if self.num_blocks_behind() > SYNC_LENIENCY {
+            trace!("Skipped processing unconfirmed solution '{}' (node is syncing)", solution.id());
+            return Ok(());
+        }
+
+        // Update the timestamp for the unconfirmed solution.
+        let seen_before = self.router().cache.insert_inbound_solution(peer_ip, solution.id()).is_some();
+        // Determine whether to propagate the solution.
+        if seen_before {
+            trace!("Skipping 'UnconfirmedSolution' from '{peer_ip}'");
+            return Ok(());
+        }
+        // Clone the serialized message.
+        let serialized = UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution) };
+        // Perform the deferred non-blocking deserialization of the solution.
+        let solution = match serialized.solution.clone().deserialize().await {
+            Ok(solution) => solution,
+            Err(error) => bail!("[UnconfirmedSolution] {error}"),
+        };
+
+        // Handle the unconfirmed solution.
+        match self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await {
+            true => {}
+            false => bail!("Peer '{peer_ip}' sent an invalid unconfirmed solution"),
+        };
         // Prepare the unconfirmed solution message.
-        let message = Message::UnconfirmedSolution(UnconfirmedSolution {
-            solution_id: solution.id(),
-            solution: Data::Object(solution),
-        });
+        let message = Message::UnconfirmedSolution(serialized);
+
         // Propagate the "UnconfirmedSolution".
         self.propagate(message, &[]);
+        Ok(())
     }
 }
 

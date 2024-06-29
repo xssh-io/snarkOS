@@ -75,7 +75,7 @@ pub struct InnerRouter<N: Network> {
     /// The account of the node.
     account: Account<N>,
     /// The cache.
-    cache: Cache<N>,
+    pub cache: Cache<N>,
     /// The resolver.
     resolver: Resolver,
     /// The set of trusted peers.

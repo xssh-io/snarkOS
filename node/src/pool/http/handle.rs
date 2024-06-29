@@ -2,16 +2,19 @@ use crate::error::PoolError;
 use crate::model::{ProverErased, SolutionMessage};
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
+use aide::NoApi;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkos_node_router_core::error::ServerError;
+use snarkos_node_router_core::extractor::ip::SecureClientIp;
 use snarkos_node_router_core::extractor::Json;
 use snarkvm::ledger::puzzle::Solution;
 use snarkvm::prelude::Network;
 use std::convert::Infallible;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -34,14 +37,15 @@ pub struct SubmitSolutionResponse {
 
 pub async fn submit_solution_handler(
     prover: State<Arc<dyn ProverErased>>,
+    ip_addr: NoApi<SecureClientIp>,
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
     if payload.address != prover.pool_address() {
         return ServerError::AppError(PoolError::InvalidPoolAddress(payload.solution.partial_solution.address))
             .into_response();
     }
-
-    if let Err(err) = prover.submit_solution(payload.address, payload.solution).await {
+    let ip_addr = SocketAddr::new(ip_addr.0 .0, 0);
+    if let Err(err) = prover.submit_solution(ip_addr, payload.address, payload.solution).await {
         warn!("Failed to submit solution: {:?}", err);
         return ServerError::<Infallible>::InvalidRequest(err.to_string()).into_response();
     }
