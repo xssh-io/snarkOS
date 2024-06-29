@@ -40,7 +40,8 @@ use snarkvm::{
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
-use anyhow::{bail, Result};
+use anyhow::ensure;
+use anyhow::Result;
 use core::time::Duration;
 use parking_lot::Mutex;
 use snarkos_node_router_core::extractor::ip::{AxumClientIpSourceConfig, SecureClientIpSource};
@@ -199,31 +200,26 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
     /// Broadcasts the solution to the network.
     async fn confirm_and_broadcast_solution(&self, peer_ip: SocketAddr, solution: Solution<N>) -> Result<()> {
         // Do not process unconfirmed solutions if the node is too far behind.
-        if self.num_blocks_behind() > SYNC_LENIENCY {
-            trace!("Skipped processing unconfirmed solution '{}' (node is syncing)", solution.id());
-            return Ok(());
-        }
+
+        ensure!(
+            self.num_blocks_behind() <= SYNC_LENIENCY,
+            "Skipped processing unconfirmed solution '{}' (node is syncing)",
+            solution.id()
+        );
 
         // Update the timestamp for the unconfirmed solution.
         let seen_before = self.router().cache.insert_inbound_solution(peer_ip, solution.id()).is_some();
-        // Determine whether to propagate the solution.
-        if seen_before {
-            trace!("Skipping 'UnconfirmedSolution' from '{peer_ip}'");
-            return Ok(());
-        }
-        // Clone the serialized message.
-        let serialized = UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution) };
-        // Perform the deferred non-blocking deserialization of the solution.
-        let solution = match serialized.solution.clone().deserialize().await {
-            Ok(solution) => solution,
-            Err(error) => bail!("[UnconfirmedSolution] {error}"),
-        };
 
+        ensure!(!seen_before, "Skipping 'UnconfirmedSolution' from '{peer_ip}': seen before");
+
+        ensure!(solution.address() == self.address(), "Peer '{peer_ip}' sent an invalid unconfirmed solution");
+        // Clone the serialized message.
+        let serialized = UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution.clone()) };
         // Handle the unconfirmed solution.
-        match self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await {
-            true => {}
-            false => bail!("Peer '{peer_ip}' sent an invalid unconfirmed solution"),
-        };
+        ensure!(
+            self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
+            "Peer '{peer_ip}' sent an invalid unconfirmed solution"
+        );
         // Prepare the unconfirmed solution message.
         let message = Message::UnconfirmedSolution(serialized);
 
