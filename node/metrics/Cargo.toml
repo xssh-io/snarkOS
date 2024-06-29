@@ -1,7 +1,7 @@
 [package]
 name = "snarkos-node-metrics"
 version = "2.2.7"
-authors = [ "The Aleo Team <hello@aleo.org>" ]
+authors = ["The Aleo Team <hello@aleo.org>"]
 description = "A node for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
@@ -10,16 +10,19 @@ keywords = [
   "cryptography",
   "blockchain",
   "decentralized",
-  "zero-knowledge"
+  "zero-knowledge",
 ]
-categories = [ "cryptography", "operating-systems" ]
+categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
 edition = "2021"
 
 [features]
-default = [ "rayon", "snarkvm/metrics"]
-metrics = [ "snarkvm/metrics" ]
+default = ["rayon", "snarkvm/metrics"]
+metrics = ["snarkvm/metrics"]
 serial = ["snarkvm/metrics"]
+
+[dependencies]
+clickhouse-rs = "=1.1.0-alpha.1"
 
 [dependencies.metrics-exporter-prometheus]
 version = "0.13"
@@ -33,11 +36,11 @@ optional = true
 
 [dependencies.snarkvm]
 workspace = true
-features = [ "metrics" ]
+features = ["metrics"]
 
 [dependencies.time]
 version = "0.3"
 
 [dependencies.tokio]
 version = "1.28"
-features = [ "rt" ]
+features = ["rt"]
