@@ -14,4 +14,6 @@
 
 pub mod error;
 pub mod handle;
+pub mod model;
 pub mod route;
+pub mod ws;

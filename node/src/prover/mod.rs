@@ -182,7 +182,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         };
         let this = self.clone();
         tokio::spawn(async move {
-            if let Err(err) = ServeAxum::new(config).serve(init_routes::<N, C>(this)).await {
+            if let Err(err) = ServeAxum::new(config).serve(init_routes(Arc::new(this))).await {
                 error!("Failed to serve HTTP: {:?}", err);
             }
         });

@@ -608,12 +608,8 @@ impl Start {
             NodeType::Validator => Node::new_validator(node_ip, self.bft, rest_ip, self.rest_rps, account, &trusted_peers, &trusted_validators, genesis, cdn, storage_mode, self.allow_external_peers, dev_txs, shutdown.clone()).await,
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
             _ if node_type.is_prover() => {
-                let pool_address = match node_type {
-                    NodeType::ProverPoolWorker => Some(self.parse_pool_address::<N>()?),
-                    _ => None
-                };
                 let pool_base_url = match node_type {
-                    NodeType::ProverPool | NodeType::ProverPoolWorker => Some(self.pool_address.clone().context("could not find pool-address")?),
+                    NodeType::ProverPool | NodeType::ProverPoolWorker => Some(self.pool_base_url.clone().context("could not find pool-base-url")?),
                     _ => None
                 };
 
