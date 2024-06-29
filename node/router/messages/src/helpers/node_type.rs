@@ -24,12 +24,10 @@ pub enum NodeType {
     Client = 0,
     /// A prover is a light node, capable of producing proofs for consensus.
     Prover,
-    /// A prover pool is a collection of prover nodes.
-    Pool,
-    /// A prover pool worker is a prover node in a prover pool.
-    ProverPoolWorker,
     /// A validator is a full node, capable of validating blocks.
     Validator,
+    /// A prover pool is a collection of prover nodes.
+    Pool = 10,
 }
 
 impl NodeType {
@@ -38,9 +36,8 @@ impl NodeType {
         match self {
             Self::Client => "a client node",
             Self::Prover => "a prover node",
-            Self::Pool => "a prover pool",
-            Self::ProverPoolWorker => "a prover pool worker",
             Self::Validator => "a validator node",
+            Self::Pool => "a prover pool",
         }
     }
 
@@ -51,7 +48,7 @@ impl NodeType {
 
     /// Returns `true` if the node type is a prover.
     pub const fn is_prover(&self) -> bool {
-        matches!(self, Self::Prover | Self::ProverPoolWorker)
+        matches!(self, Self::Prover)
     }
 
     /// Returns `true` if the node type is a validator.
@@ -68,9 +65,8 @@ impl core::fmt::Display for NodeType {
             match self {
                 Self::Client => "Client",
                 Self::Prover => "Prover",
-                Self::Pool => "ProverPool",
-                Self::ProverPoolWorker => "ProverPoolWorker",
                 Self::Validator => "Validator",
+                Self::Pool => "ProverPool",
             }
         )
     }
@@ -88,6 +84,7 @@ impl FromBytes for NodeType {
             0 => Ok(Self::Client),
             1 => Ok(Self::Prover),
             2 => Ok(Self::Validator),
+            3 => Ok(Self::Pool),
             _ => Err(error("Invalid node type")),
         }
     }

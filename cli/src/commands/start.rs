@@ -492,11 +492,7 @@ impl Start {
         if self.validator {
             NodeType::Validator
         } else if self.prover {
-            if self.pool_base_url.is_some() {
-                NodeType::ProverPoolWorker
-            } else {
-                NodeType::Prover
-            }
+            NodeType::Prover
         } else if self.pool {
             NodeType::Pool
         } else {
@@ -598,20 +594,13 @@ impl Start {
         match node_type {
             NodeType::Validator => Node::new_validator(node_ip, self.bft, rest_ip, self.rest_rps, account, &trusted_peers, &trusted_validators, genesis, cdn, storage_mode, self.allow_external_peers, dev_txs, shutdown.clone()).await,
             NodeType::Client => Node::new_client(node_ip, rest_ip, self.rest_rps, account, &trusted_peers, genesis, cdn, storage_mode, shutdown).await,
-            _ if node_type.is_prover() => {
-                let pool_base_url = match node_type {
-                     NodeType::ProverPoolWorker => Some(self.pool_base_url.clone().context("could not find pool-base-url")?),
-                    _ => None
-                };
-
-                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), node_type, pool_base_url).await
+            NodeType::Prover => {
+                Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), self.pool_base_url.clone()).await
             },
             NodeType::Pool => {
                 let pool_base_url = self.pool_base_url.clone().context("could not find pool-base-url")?;
                 Node::new_pool(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), pool_base_url).await
             },
-
-            _ => bail!("Invalid node type specified: {}", node_type),
         }
     }
 

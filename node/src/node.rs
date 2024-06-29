@@ -84,12 +84,10 @@ impl<N: Network> Node<N> {
         genesis: Block<N>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
-        node_type: NodeType,
         pool_base_url: Option<String>,
     ) -> Result<Self> {
         Ok(Self::Prover(Arc::new(
-            Prover::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, node_type, pool_base_url)
-                .await?,
+            Prover::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, pool_base_url).await?,
         )))
     }
 
