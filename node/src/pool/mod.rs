@@ -44,13 +44,11 @@ use aleo_std::StorageMode;
 use anyhow::Result;
 use core::{marker::PhantomData, time::Duration};
 use parking_lot::{Mutex, RwLock};
-use snarkos_node_bft::helpers::fmt_id;
 use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
-use snarkvm::prelude::Address;
 use std::{
     net::SocketAddr,
     sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
@@ -71,16 +69,12 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     latest_epoch_hash: Arc<RwLock<Option<N::BlockHash>>>,
     /// The latest block header.
     latest_block_header: Arc<RwLock<Option<Header<N>>>>,
-    /// The number of puzzle instances.
-    puzzle_instances: Arc<AtomicU8>,
-    /// The maximum number of puzzle instances.
-    max_puzzle_instances: u8,
+
     /// The spawned handles.
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
     pool_base_url: String,
-    http_client: reqwest::Client,
     ws_config: WsConfig,
     /// PhantomData.
     _phantom: PhantomData<C>,
@@ -118,8 +112,6 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             matches!(storage_mode, StorageMode::Development(_)),
         )
         .await?;
-        // Compute the maximum number of puzzle instances.
-        let max_puzzle_instances = num_cpus::get().saturating_sub(2).clamp(1, 6);
 
         // Initialize the node.
         let node = Self {
@@ -129,12 +121,9 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             puzzle: VM::<N, C>::new_puzzle()?,
             latest_epoch_hash: Default::default(),
             latest_block_header: Default::default(),
-            puzzle_instances: Default::default(),
-            max_puzzle_instances: u8::try_from(max_puzzle_instances)?,
             handles: Default::default(),
             shutdown,
             pool_base_url,
-            http_client: reqwest::Client::new(),
             ws_config: WsConfig::new(),
             _phantom: Default::default(),
         };
@@ -144,7 +133,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         node.enable_http_request().await;
 
         // Initialize the puzzle.
-        node.initialize_puzzle().await;
+        node.enable_http_request().await;
         // Initialize the notification message loop.
         node.handles.lock().push(crate::start_notification_message_loop());
         // Pass the node to the signal handler.
@@ -189,11 +178,6 @@ impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Pool<N, C> {
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
-    /// Initialize a new instance of the puzzle.
-    async fn initialize_puzzle(&self) {
-        self.enable_http_request().await;
-    }
-
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>) {
         // Prepare the unconfirmed solution message.
@@ -203,24 +187,5 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         });
         // Propagate the "UnconfirmedSolution".
         self.propagate(message, &[]);
-    }
-
-    /// Returns the current number of puzzle instances.
-    fn num_puzzle_instances(&self) -> u8 {
-        self.puzzle_instances.load(Ordering::Relaxed)
-    }
-
-    /// Increments the number of puzzle instances.
-    fn increment_puzzle_instances(&self) {
-        self.puzzle_instances.fetch_add(1, Ordering::Relaxed);
-        #[cfg(debug_assertions)]
-        trace!("Number of Instances - {}", self.num_puzzle_instances());
-    }
-
-    /// Decrements the number of puzzle instances.
-    fn decrement_puzzle_instances(&self) {
-        self.puzzle_instances.fetch_sub(1, Ordering::Relaxed);
-        #[cfg(debug_assertions)]
-        trace!("Number of Instances - {}", self.num_puzzle_instances());
     }
 }
