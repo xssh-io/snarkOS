@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod model;
 mod names;
 
+use model::OpenMetricsGaugeLine;
 // Expose the names at the crate level for easy access.
 pub use names::*;
 
+use rayon::string;
 // Re-export the snarkVM metrics.
 pub use snarkvm::metrics::*;
 
@@ -29,13 +32,15 @@ use snarkvm::{
     prelude::{cfg_iter, Block, Network},
 };
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
 };
 use time::OffsetDateTime;
+
+type PositionMetricsLine = OpenMetricsGaugeLine;
 
 /// Initializes the metrics and returns a handle to the task running the metrics exporter.
 pub fn initialize_metrics() {
@@ -45,6 +50,10 @@ pub fn initialize_metrics() {
     // Register the snarkVM metrics.
     snarkvm::metrics::register_metrics();
 
+    let mut metrics: Vec<PositionMetricsLine> = vec![];
+    // TODO: push new gaugelines
+    // let guage = _register_gauge();
+    // metrics.push(guage);
     // Register the metrics so they exist on init.
     for name in crate::names::GAUGE_NAMES {
         register_gauge(name);
@@ -55,6 +64,22 @@ pub fn initialize_metrics() {
     for name in crate::names::HISTOGRAM_NAMES {
         register_histogram(name);
     }
+}
+
+fn _register_gauge(
+    gauge_name: &str,
+    label_keys: Vec<String>,
+    values: Vec<String>,
+    counter: f64,
+    counter_type: &str,
+    metrics_type: &str,
+) -> PositionMetricsLine {
+    let mut labels: BTreeMap<String, String> = BTreeMap::new();
+    for (index, key) in label_keys.iter().enumerate() {
+        labels.insert(key.to_string(), values[index].clone());
+    }
+    let name = gauge_name;
+    PositionMetricsLine::new(name, labels, counter, counter_type, metrics_type)
 }
 
 pub fn update_block_metrics<N: Network>(block: &Block<N>) {

@@ -16,8 +16,6 @@ mod common;
 use common::*;
 
 use reqwest::Url;
-use snarkos_node_router::init_routes;
-use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 use snarkos_node_tcp::{protocols::Handshake, P2P};
 
 use core::time::Duration;
@@ -257,17 +255,4 @@ async fn test_connect_simultaneously_with_handshake() {
         assert_eq!(node0.number_of_connected_peers(), 1);
         assert_eq!(node1.number_of_connected_peers(), 1);
     }
-}
-
-#[tokio::test]
-async fn test_start_server() -> eyre::Result<()> {
-    #[allow(dead_code)]
-    struct Config {
-        public_key: String,
-        base_url: String,
-    }
-    let config = Config { public_key: "".into(), base_url: "http://localhost:3000".into() };
-    ServeAxum::new(ServeAxumConfig { title: "Axum".to_string(), url: Url::parse(&config.base_url).unwrap() })
-        .serve(init_routes())
-        .await
 }
