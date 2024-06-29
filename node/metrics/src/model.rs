@@ -13,34 +13,20 @@ impl<T: OpenMetricsExport> OpenMetricsExport for tokio::sync::RwLock<T> {
 pub struct OpenMetricsGaugeLine {
     pub name: String,
     pub labels: BTreeMap<String, String>,
-    pub counter: f64,
-    pub counter_type: String,
-    pub metrics_type: String,
+    pub value: f64,
 }
 
 impl OpenMetricsGaugeLine {
-    pub fn new(
-        name: &str,
-        labels: BTreeMap<String, String>,
-        counter: f64,
-        counter_type: &str,
-        metrics_type: &str,
-    ) -> Self {
-        OpenMetricsGaugeLine {
-            name: name.to_string(),
-            labels,
-            counter,
-            counter_type: counter_type.to_string(),
-            metrics_type: metrics_type.to_string(),
-        }
+    pub fn new(name: &str, labels: BTreeMap<String, String>, counter: f64) -> Self {
+        OpenMetricsGaugeLine { name: name.to_string(), labels, value: counter }
     }
 }
 impl OpenMetricsExport for OpenMetricsGaugeLine {
     async fn to_string(&self) -> String {
         if self.labels.is_empty() {
-            return format!("{} {} {}", self.name, self.counter, self.counter_type);
+            return format!("{} {}", self.name, self.value);
         }
-        format!("{}{{{}}} {} {}", self.name, format_labels(&self.labels), self.counter, self.counter_type)
+        format!("{}{{{}}} {}", self.name, format_labels(&self.labels), self.value)
     }
 }
 

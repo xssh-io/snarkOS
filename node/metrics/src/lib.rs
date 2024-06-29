@@ -12,25 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod model;
-mod names;
-
-use model::OpenMetricsGaugeLine;
-// Expose the names at the crate level for easy access.
-pub use names::*;
-
-use rayon::string;
-// Re-export the snarkVM metrics.
-pub use snarkvm::metrics::*;
-
-#[cfg(not(feature = "serial"))]
-use rayon::prelude::*;
-
-use parking_lot::Mutex;
-use snarkvm::{
-    ledger::narwhal::TransmissionID,
-    prelude::{cfg_iter, Block, Network},
-};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{
@@ -38,9 +19,24 @@ use std::{
         Arc,
     },
 };
+
+use parking_lot::Mutex;
+#[cfg(not(feature = "serial"))]
+use rayon::prelude::*;
+use snarkvm::{
+    ledger::narwhal::TransmissionID,
+    prelude::{cfg_iter, Block, Network},
+};
+// Re-export the snarkVM metrics.
+pub use snarkvm::metrics::*;
 use time::OffsetDateTime;
 
-type PositionMetricsLine = OpenMetricsGaugeLine;
+use model::OpenMetricsGaugeLine;
+// Expose the names at the crate level for easy access.
+pub use names::*;
+
+pub mod model;
+mod names;
 
 /// Initializes the metrics and returns a handle to the task running the metrics exporter.
 pub fn initialize_metrics() {
@@ -48,38 +44,29 @@ pub fn initialize_metrics() {
     metrics_exporter_prometheus::PrometheusBuilder::new().install().expect("can't build the prometheus exporter");
 
     // Register the snarkVM metrics.
-    snarkvm::metrics::register_metrics();
+    register_metrics();
 
-    let mut metrics: Vec<PositionMetricsLine> = vec![];
-    // TODO: push new gaugelines
     // let guage = _register_gauge();
     // metrics.push(guage);
     // Register the metrics so they exist on init.
-    for name in crate::names::GAUGE_NAMES {
+    for name in GAUGE_NAMES {
         register_gauge(name);
     }
-    for name in crate::names::COUNTER_NAMES {
+    for name in COUNTER_NAMES {
         register_counter(name);
     }
-    for name in crate::names::HISTOGRAM_NAMES {
+    for name in HISTOGRAM_NAMES {
         register_histogram(name);
     }
 }
 
-fn _register_gauge(
-    gauge_name: &str,
-    label_keys: Vec<String>,
-    values: Vec<String>,
-    counter: f64,
-    counter_type: &str,
-    metrics_type: &str,
-) -> PositionMetricsLine {
+fn _register_gauge(gauge_name: &str, label_keys: Vec<String>, values: Vec<String>, value: f64) -> OpenMetricsGaugeLine {
     let mut labels: BTreeMap<String, String> = BTreeMap::new();
     for (index, key) in label_keys.iter().enumerate() {
         labels.insert(key.to_string(), values[index].clone());
     }
     let name = gauge_name;
-    PositionMetricsLine::new(name, labels, counter, counter_type, metrics_type)
+    OpenMetricsGaugeLine::new(name, labels, value)
 }
 
 pub fn update_block_metrics<N: Network>(block: &Block<N>) {
