@@ -17,3 +17,5 @@ use aide::NoApi;
 pub type AxumWebSocketUpgrade = axum::extract::ws::WebSocketUpgrade;
 
 pub type WebSocketUpgrade = NoApi<AxumWebSocketUpgrade>;
+pub type WebSocket = axum::extract::ws::WebSocket;
+pub type WebsocketMessage = axum::extract::ws::Message;

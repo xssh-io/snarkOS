@@ -95,3 +95,7 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased for Prover<N, C> {
         address.to_string()
     }
 }
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub enum WsMessage {
+    NewEpoch { epoch: u64 },
+}

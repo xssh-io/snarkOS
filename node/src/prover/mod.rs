@@ -41,6 +41,7 @@ use snarkvm::{
 use self::http::handle::SubmitSolutionRequest;
 use crate::handle::PoolAddressResponse;
 use crate::route::init_routes;
+use crate::ws::WsConfig;
 use aleo_std::StorageMode;
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -88,6 +89,7 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     pool_address: Option<Address<N>>,
     pool_base_url: Option<String>,
     http_client: reqwest::Client,
+    ws_config: WsConfig,
     /// PhantomData.
     _phantom: PhantomData<C>,
 }
@@ -153,6 +155,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             pool_address,
             pool_base_url,
             http_client: reqwest::Client::new(),
+            ws_config: WsConfig::new(),
             _phantom: Default::default(),
         };
         // Initialize the routing.
@@ -181,8 +184,9 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                 .expect("failed to parse url"),
         };
         let this = self.clone();
+        let ws_config = self.ws_config.clone();
         tokio::spawn(async move {
-            if let Err(err) = ServeAxum::new(config).serve(init_routes(Arc::new(this))).await {
+            if let Err(err) = ServeAxum::new(config).serve(init_routes(Arc::new(this), ws_config)).await {
                 error!("Failed to serve HTTP: {:?}", err);
             }
         });
