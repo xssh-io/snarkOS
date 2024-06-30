@@ -19,21 +19,13 @@ fi
 POOL_BASE_URL="http://localhost:3031"
 
 # mainnet is not ready yet. use testnet
-COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
+
+COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers 35.231.152.213"
 
 for word in $*;
 do
   COMMAND="${COMMAND} ${word}"
 done
-
-function exit_node()
-{
-    echo "Exiting..."
-    kill $!
-    exit
-}
-
-trap exit_node SIGINT
 
 echo "Running an Aleo Prover node..."
 $COMMAND
