@@ -20,7 +20,7 @@ POOL_BASE_URL="http://localhost:3031"
 
 # mainnet is not ready yet. use testnet
 
-COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers 35.231.152.213"
+COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers 35.231.152.213:4130"
 
 for word in $*;
 do
