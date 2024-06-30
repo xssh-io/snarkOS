@@ -18,8 +18,8 @@ fi
 
 POOL_BASE_URL="http://localhost:3031"
 
-# CDN is broken for mainnet
-COMMAND="snarkos start --nodisplay --pool --nocdn --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
+# mainnet is not ready yet. use testnet
+COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
 
 for word in $*;
 do
@@ -36,19 +36,4 @@ function exit_node()
 trap exit_node SIGINT
 
 echo "Running an Aleo Prover node..."
-$COMMAND &
-
-while :
-do
-  echo "Checking for updates..."
-  git stash
-  STATUS=$(git pull)
-
-  if [ "$STATUS" != "Already up to date." ]; then
-    echo "Updated code found, rebuilding and relaunching prover"
-    cargo clean
-    kill -INT $!; sleep 2; $COMMAND &
-  fi
-
-  sleep 1800;
-done
+$COMMAND
