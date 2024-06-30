@@ -16,9 +16,10 @@ then
   exit
 fi
 
-POOL_BASE_URL="http://localhost:3030"
+POOL_BASE_URL="http://localhost:3031"
 
-COMMAND="cargo run --release -- start --nodisplay --prover-pool --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
+# CDN is broken for mainnet
+COMMAND="snarkos start --nodisplay --pool --nocdn --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
 
 for word in $*;
 do

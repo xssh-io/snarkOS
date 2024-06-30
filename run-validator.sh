@@ -16,7 +16,7 @@ then
   exit
 fi
 
-COMMAND="cargo run --release -- start --nodisplay --validator --private-key ${VALIDATOR_PRIVATE_KEY}"
+COMMAND="snarkos start --nodisplay --validator --private-key ${VALIDATOR_PRIVATE_KEY}"
 
 for word in $*;
 do

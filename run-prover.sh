@@ -16,7 +16,8 @@ then
   exit
 fi
 
-COMMAND="cargo run --release -- start --nodisplay --prover --private-key ${PROVER_PRIVATE_KEY}"
+
+COMMAND="snarkos start --nodisplay --prover --private-key ${PROVER_PRIVATE_KEY}"
 
 for word in $*;
 do
