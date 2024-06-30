@@ -73,11 +73,11 @@ impl ServeAxum {
 
         // NormalizePathLayer must be applied before the Router
         let router = NormalizePathLayer::trim_trailing_slash().layer(router);
-        let listens = TcpListener::bind(&addr).await.with_context(|| format!("failed to bind to {}", addr))?;
+        let listener = TcpListener::bind(&addr).await.with_context(|| format!("failed to bind to {}", addr))?;
 
         info!("Starting {} server at {}", self.title, self.url);
         info!("OpenAPI docs are accessible at {}", docs_url);
-        axum::serve(listens, ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(router)).await?;
+        axum::serve(listener, ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(router)).await?;
         Ok(())
     }
 }
