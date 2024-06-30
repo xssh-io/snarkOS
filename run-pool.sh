@@ -16,7 +16,7 @@ then
   exit
 fi
 
-POOL_BASE_URL="http://0,0,0,0:3031"
+POOL_BASE_URL="http://0.0.0.0:3031"
 
 # mainnet is not ready yet. use testnet
 
