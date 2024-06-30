@@ -16,9 +16,9 @@ then
   exit
 fi
 
-POOL_BASE_URL="http://localhost:3030"
+POOL_BASE_URL="http://10.0.11.54:3030"
 
-COMMAND="snarkos start --nodisplay --prover-pool-worker --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
+COMMAND="snarkos start --nodisplay --prover-pool-worker --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers 35.231.152.213:4130"
 
 for word in $*;
 do
@@ -32,22 +32,7 @@ function exit_node()
     exit
 }
 
-trap exit_node SIGINT
 
 echo "Running an Aleo Prover node..."
-$COMMAND &
+$COMMAND
 
-while :
-do
-  echo "Checking for updates..."
-  git stash
-  STATUS=$(git pull)
-
-  if [ "$STATUS" != "Already up to date." ]; then
-    echo "Updated code found, rebuilding and relaunching prover"
-    cargo clean
-    kill -INT $!; sleep 2; $COMMAND &
-  fi
-
-  sleep 1800;
-done
