@@ -4,7 +4,7 @@ use aide::axum::ApiRouter;
 use aide::openapi::{Info, OpenApi};
 use axum::extract::Request;
 use axum::{Extension, ServiceExt};
-use eyre::{ensure, Result};
+use eyre::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::net::SocketAddr;
@@ -73,7 +73,7 @@ impl ServeAxum {
 
         // NormalizePathLayer must be applied before the Router
         let router = NormalizePathLayer::trim_trailing_slash().layer(router);
-        let listens = TcpListener::bind(&addr).await?;
+        let listens = TcpListener::bind(&addr).await.with_context(|| format!("failed to bind to {}", addr))?;
 
         info!("Starting {} server at {}", self.title, self.url);
         info!("OpenAPI docs are accessible at {}", docs_url);
