@@ -16,9 +16,12 @@ then
   exit
 fi
 
-POOL_BASE_URL="http://10.0.11.54:3031"
+POOL_BASE_URL="http://0.0.0.0:3031"
 
-COMMAND="snarkos start --nodisplay --prover --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers 35.231.152.213:3030"
+# mainnet is not ready yet. use testnet
+PEERS=$(scripts/get-testnet-nodes.sh)
+
+COMMAND="snarkos start --nodisplay --pool --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers $PEERS"
 
 for word in $*;
 do
@@ -27,4 +30,3 @@ done
 
 echo "Running an Aleo Prover node..."
 $COMMAND
-
