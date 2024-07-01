@@ -122,11 +122,6 @@ features = ["sink"]
 [dev-dependencies.peak_alloc]
 version = "0.2"
 
-[dev-dependencies.snarkos-node-sync]
-path = "../sync"
-features = ["test"]
-
-
 [dev-dependencies.tracing-subscriber]
 version = "0.3"
 features = ["env-filter", "fmt"]
