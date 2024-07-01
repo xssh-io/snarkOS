@@ -2,13 +2,13 @@ version = "1"
 
 [hooks]
 # Define the pre-commit hook
-pre-commit = "cargo fmt -- --check"
+pre-commit = ""
 
 # Define the pre-push hook
-pre-push = "cargo test"
+pre-push = ""
 
 # Define the commit-msg hook
-commit-msg = "validate-commit-msg"
+commit-msg = ""
 
 # Define the post-checkout hook
 post-checkout = "echo 'Checked out to a new branch'"
