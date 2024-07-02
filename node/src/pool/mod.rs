@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod config;
 mod export;
 mod http;
 mod router;
@@ -39,6 +40,7 @@ use snarkvm::{
     },
 };
 
+use crate::pool::config::PoolConfig;
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
@@ -46,6 +48,7 @@ use anyhow::ensure;
 use anyhow::Result;
 use core::time::Duration;
 use parking_lot::Mutex;
+use reqwest::Url;
 use snarkos_node_router_core::extractor::ip::{AxumClientIpSourceConfig, SecureClientIpSource};
 use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 use snarkvm::prelude::Ledger;
@@ -77,7 +80,7 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
-    pool_base_url: String,
+    pool_base_url: Url,
     ws_config: WsConfig,
 }
 
@@ -91,7 +94,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         cdn: Option<String>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
-        pool_base_url: String,
+        config: PoolConfig,
     ) -> Result<Self> {
         // Initialize the signal handler.
         let signal_node = Self::handle_signals(shutdown.clone());
@@ -138,7 +141,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             puzzle: ledger.puzzle().clone(),
             handles: Default::default(),
             shutdown,
-            pool_base_url,
+            pool_base_url: config.base_url(),
             ws_config: WsConfig::new(),
         };
         // Initialize the routing.
@@ -163,7 +166,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
     async fn enable_http_server(&self) {
         let config = ServeAxumConfig {
             title: "Aleo Prover Pool".to_string(),
-            url: self.pool_base_url.parse().expect("failed to parse url"),
+            url: self.pool_base_url.clone(),
             ip_source: AxumClientIpSourceConfig::Secure(SecureClientIpSource::ConnectInfo),
         };
         let this = self.clone();
