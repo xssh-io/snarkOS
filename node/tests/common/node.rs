@@ -14,7 +14,7 @@
 
 use crate::common::test_peer::sample_genesis_block;
 use snarkos_account::Account;
-use snarkos_node::{Client, Pool, Validator};
+use snarkos_node::{Client, Pool, Prover, Validator};
 use snarkvm::prelude::{store::helpers::memory::ConsensusMemory, MainnetV0 as CurrentNetwork};
 
 use aleo_std::StorageMode;
@@ -37,7 +37,7 @@ pub async fn client() -> Client<CurrentNetwork, ConsensusMemory<CurrentNetwork>>
 }
 
 pub async fn prover() -> Pool<CurrentNetwork, ConsensusMemory<CurrentNetwork>> {
-    Pool::new(
+    Prover::new(
         "127.0.0.1:0".parse().unwrap(),
         Account::<CurrentNetwork>::from_str("APrivateKey1zkp2oVPTci9kKcUprnbzMwq95Di1MQERpYBhEeqvkrDirK1").unwrap(),
         &[],

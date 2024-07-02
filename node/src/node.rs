@@ -21,6 +21,7 @@ use snarkvm::prelude::{
     Address, Network, PrivateKey, ViewKey,
 };
 
+use crate::config::PoolConfig;
 use aleo_std::StorageMode;
 use anyhow::Result;
 use std::{
@@ -100,10 +101,10 @@ impl<N: Network> Node<N> {
         cdn: Option<String>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
-        pool_base_url: String,
+        config: PoolConfig,
     ) -> Result<Self> {
         Ok(Self::Pool(Arc::new(
-            Pool::new(node_ip, account, trusted_peers, genesis, cdn, storage_mode, shutdown, pool_base_url).await?,
+            Pool::new(node_ip, account, trusted_peers, genesis, cdn, storage_mode, shutdown, config).await?,
         )))
     }
     /// Initializes a new client node.

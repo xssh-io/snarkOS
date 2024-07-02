@@ -163,6 +163,9 @@ pub struct Start {
     /// If development mode is enabled, specify the custom bonded balances as a JSON object (default: None)
     #[clap(long)]
     pub dev_bonded_balances: Option<BondedBalances>,
+    /// Specify the config file to load the node configurations from
+    #[clap(long)]
+    pub config: Option<PathBuf>,
 }
 
 impl Start {
@@ -598,8 +601,10 @@ impl Start {
                 Node::new_prover(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), self.pool_base_url.clone()).await
             },
             NodeType::Pool => {
-                let pool_base_url = self.pool_base_url.clone().context("could not find pool-base-url")?;
-                Node::new_pool(node_ip, account, &trusted_peers, genesis, cdn, storage_mode, shutdown.clone(), pool_base_url).await
+                let config_path = self.config.as_deref().with_context(|| "Failed to read the config file. --config required")?;
+                let config_content = std::fs::read_to_string(config_path).with_context(|| format!("Failed to read the config file '{:?}'", config_path))?;
+                let config = serde_json::from_str(&config_content).with_context(|| format!("Failed to parse the config file '{:?}'", config_path))?;
+                Node::new_pool(node_ip, account, &trusted_peers, genesis, cdn, storage_mode, shutdown.clone(), config).await
             },
         }
     }
