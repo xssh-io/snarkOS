@@ -13,7 +13,6 @@
 // limitations under the License.
 
 mod export;
-mod export;
 mod http;
 mod router;
 
@@ -26,7 +25,7 @@ pub use http::*;
 use snarkos_account::Account;
 use snarkos_node_bft::ledger_service::CoreLedgerService;
 use snarkos_node_router::{
-    messages::{Message, NodeType, UnconfirmedSolution},
+    messages::{NodeType, UnconfirmedSolution},
     Heartbeat, Inbound, Outbound, Router, Routing, SYNC_LENIENCY,
 };
 use snarkos_node_sync::{BlockSync, BlockSyncMode};
