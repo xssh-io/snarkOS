@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use anyhow::Result;
 use chrono::Local;
+use clickhouse_rs::ClientHandle;
 use snarkvm::prelude::Network;
 
 use crate::handle::SubmitSolutionRequest;
@@ -19,15 +20,15 @@ impl ExportSolution for () {
 }
 
 pub struct ExportSolutionClickhouse<N: Network> {
-    client: clickhouse_rs::Client,
+    client: ClientHandle,
 }
 impl<N: Network> ExportSolutionClickhouse<N> {
-    pub fn new(client: clickhouse_rs::Client) -> Self {
+    pub fn new(client: ClientHandle) -> Self {
         Self { client }
     }
-    pub async fn export_solution(&self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
-        let submitter_address = solution.address;
-        let partial = solution.solution.partial_solution;
+    pub async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
+        let submitter_address = solution.address.clone();
+        let partial = solution.solution.partial_solution.clone();
         let now = Local::now();
         let query = format!(
             "INSERT INTO solution (datetime, submitter_address, submitter_ip, solution_id, epoch_hash, address, counter, target) VALUES ({}, {}, {}, {}, {}, {}, {}, {})",
