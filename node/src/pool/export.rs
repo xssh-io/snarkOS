@@ -1,51 +1,40 @@
 use std::net::SocketAddr;
 
+use crate::{handle::SubmitSolutionRequest, model::PartialSolutionMessage};
 use anyhow::Result;
 use clickhouse_rs::{Block, ClientHandle};
 use snarkos_node_bft::helpers::now;
 use snarkvm::prelude::Network;
-
-use crate::{handle::SubmitSolutionRequest, model::PartialSolutionMessage};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[async_trait::async_trait]
 pub trait ExportSolution: Send + Sync {
-    async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()>;
+    async fn export_solution(&self, ip_addr: SocketAddr, solution: &SubmitSolutionRequest) -> Result<()>;
 }
 
 #[async_trait::async_trait]
 impl ExportSolution for () {
-    async fn export_solution(&mut self, _: &SubmitSolutionRequest, _: SocketAddr) -> Result<()> {
+    async fn export_solution(&self, _: SocketAddr, _: &SubmitSolutionRequest) -> Result<()> {
         Ok(())
     }
 }
 
 pub struct ExportSolutionClickhouse<N: Network> {
-    client: ClientHandle,
+    tx: Sender<(SocketAddr, SubmitSolutionRequest)>,
     _network: Option<N>,
 }
 impl<N: Network> ExportSolutionClickhouse<N> {
     pub fn new(client: ClientHandle) -> Self {
-        Self { client, _network: None }
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        tokio::spawn(Self::run(client, rx));
+        Self { tx, _network: None }
     }
-}
-
-#[async_trait::async_trait]
-impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
-    async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
+    async fn export_solution(
+        client: &mut ClientHandle,
+        solution: &SubmitSolutionRequest,
+        ip_addr: SocketAddr,
+    ) -> Result<()> {
         let submitter_address = solution.address.clone();
-        let ddl = r"
-            CREATE TABLE IF NOT EXISTS solution (
-                datetime DateTime,
-                submitter_address String,
-                submitter_ip String,
-                solution_id String,
-                epoch_hash String,
-                address String,
-                counter UInt64,
-                target UInt64
-            ) ENGINE = MergeTree()
-            ORDER BY tuple()";
-        self.client.execute(ddl).await?;
         let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
             solution.solution.partial_solution.clone();
         let block = Block::new()
@@ -57,7 +46,22 @@ impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
             .column("address", vec![address])
             .column("counter", vec![counter])
             .column("target", vec![solution.solution.target]);
-        self.client.insert("solution", block).await?;
+        client.insert("solution", block).await?;
+        Ok(())
+    }
+    async fn run(mut client: ClientHandle, mut rx: Receiver<(SocketAddr, SubmitSolutionRequest)>) {
+        while let Some((ip_addr, solution)) = rx.recv().await {
+            if let Err(e) = Self::export_solution(&mut client, &solution, ip_addr).await {
+                error!("Failed to export solution: {:?}", e);
+            }
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
+    async fn export_solution(&self, ip_addr: SocketAddr, solution: &SubmitSolutionRequest) -> Result<()> {
+        self.tx.send((ip_addr, solution.clone())).await?;
         Ok(())
     }
 }

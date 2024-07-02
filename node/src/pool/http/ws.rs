@@ -1,4 +1,3 @@
-use crate::model::WsMessage;
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use aide::NoApi;
@@ -16,7 +15,7 @@ use tokio::select;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
-
+type WsMessage = ();
 #[derive(Clone)]
 pub struct WsConfig {
     pub clients: Arc<Mutex<Vec<WebsocketHandle>>>,
