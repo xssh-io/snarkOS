@@ -38,6 +38,7 @@ aide = { version = "0.13.0", features = ["axum", "macros", "redoc"] }
 reqwest = { version = "0.12.5", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
+clickhouse-rs = "=1.1.0-alpha.1"
 
 
 [dependencies.aleo-std]
