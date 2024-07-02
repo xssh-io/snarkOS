@@ -1,4 +1,3 @@
-use crate::error::PoolError;
 use crate::model::{ProverErased, SolutionMessage};
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
@@ -17,7 +16,7 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SubmitSolutionRequest {
     pub address: String,
     pub solution: SolutionMessage,
@@ -40,16 +39,11 @@ pub async fn submit_solution_handler(
     ip_addr: NoApi<SecureClientIp>,
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
-    if payload.address != prover.pool_address() {
-        return ServerError::AppError(PoolError::InvalidPoolAddress(payload.solution.partial_solution.address))
-            .into_response();
-    }
     let ip_addr = SocketAddr::new(ip_addr.0 .0, 0);
-    if let Err(err) = prover.submit_solution(ip_addr, payload.address, payload.solution).await {
+    if let Err(err) = prover.submit_solution(ip_addr, payload).await {
         warn!("Failed to submit solution: {:?}", err);
         return ServerError::<Infallible>::InvalidRequest(err.to_string()).into_response();
     }
-    // TODO: enqueue solution to database and message queue
     let response = SubmitSolutionResponse { msg: "submitted".into() };
     (StatusCode::OK, Json(response)).into_response()
 }

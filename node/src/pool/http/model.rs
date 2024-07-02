@@ -1,3 +1,4 @@
+use crate::handle::SubmitSolutionRequest;
 use crate::{NodeInterface, Pool};
 use anyhow::{bail, Error};
 use schemars::JsonSchema;
@@ -74,38 +75,24 @@ impl<N: Network> From<PartialSolution<N>> for PartialSolutionMessage {
 }
 #[async_trait]
 pub trait ProverErased: Send + Sync {
-    async fn submit_solution(
-        &self,
-        peer_ip: SocketAddr,
-        address: String,
-        solution: SolutionMessage,
-    ) -> Result<(), Error>;
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error>;
     fn pool_address(&self) -> String;
 }
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
-    async fn submit_solution(
-        &self,
-        peer_ip: SocketAddr,
-        address: String,
-        solution: SolutionMessage,
-    ) -> Result<(), Error> {
-        let solution = match solution.try_into() {
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error> {
+        let solution: Solution<N> = match request.solution.clone().try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),
         };
-        if address != self.address().to_string() {
-            bail!("Invalid pool address: {}", address);
+        if solution.address() != self.address() {
+            bail!("Invalid pool address: {}", request.address);
         }
-        self.confirm_and_broadcast_solution(peer_ip, solution).await
+        self.confirm_and_broadcast_solution(peer_ip, &request, solution).await
     }
 
     fn pool_address(&self) -> String {
         let address = self.address();
         address.to_string()
     }
-}
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub enum WsMessage {
-    NewEpoch { epoch: u64 },
 }

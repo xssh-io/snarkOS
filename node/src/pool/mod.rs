@@ -40,7 +40,9 @@ use snarkvm::{
     },
 };
 
+use crate::handle::SubmitSolutionRequest;
 use crate::pool::config::PoolConfig;
+use crate::pool::export::ExportSolution;
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
@@ -82,6 +84,7 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     pool_base_url: Url,
     ws_config: WsConfig,
+    export: Arc<dyn ExportSolution>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
@@ -143,6 +146,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             shutdown,
             pool_base_url: config.base_url(),
             ws_config: WsConfig::new(),
+            export: config.get_export::<N>().await?,
         };
         // Initialize the routing.
         node.initialize_routing().await;
@@ -203,7 +207,12 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         self.handles.lock().push(tokio::spawn(future));
     }
     /// Broadcasts the solution to the network.
-    async fn confirm_and_broadcast_solution(&self, peer_ip: SocketAddr, solution: Solution<N>) -> Result<()> {
+    async fn confirm_and_broadcast_solution(
+        &self,
+        peer_ip: SocketAddr,
+        msg: &SubmitSolutionRequest,
+        solution: Solution<N>,
+    ) -> Result<()> {
         // Do not process unconfirmed solutions if the node is too far behind.
 
         ensure!(
@@ -225,6 +234,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
             "Peer '{peer_ip}' sent an invalid unconfirmed solution"
         );
+        self.export.export_solution(peer_ip, msg).await?;
 
         Ok(())
     }
