@@ -21,11 +21,11 @@ impl ExportSolution for () {
 
 pub struct ExportSolutionClickhouse<N: Network> {
     client: ClientHandle,
-    network: Option<N>,
+    _network: Option<N>,
 }
 impl<N: Network> ExportSolutionClickhouse<N> {
     pub fn new(client: ClientHandle) -> Self {
-        Self { client, network: None }
+        Self { client, _network: None }
     }
 }
 
@@ -33,6 +33,19 @@ impl<N: Network> ExportSolutionClickhouse<N> {
 impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
     async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
         let submitter_address = solution.address.clone();
+        let ddl = r"
+            CREATE TABLE IF NOT EXISTS solution (
+                datetime DateTime,
+                submitter_address String,
+                submitter_ip String,
+                solution_id String,
+                epoch_hash String,
+                address String,
+                counter UInt64,
+                target UInt64
+            ) ENGINE = MergeTree()
+            ORDER BY tuple()";
+        self.client.execute(ddl).await?;
         let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
             solution.solution.partial_solution.clone();
         let block = Block::new()
