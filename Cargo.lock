@@ -3740,6 +3740,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "chrono",
  "clickhouse-rs",
  "colored",
  "deadline",

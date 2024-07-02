@@ -41,6 +41,8 @@ thiserror = "1.0"
 clickhouse-rs = "=1.1.0-alpha.1"
 
 
+[dependencies.chrono]
+
 [dependencies.aleo-std]
 workspace = true
 
