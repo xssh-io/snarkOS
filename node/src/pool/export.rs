@@ -21,10 +21,11 @@ impl ExportSolution for () {
 
 pub struct ExportSolutionClickhouse<N: Network> {
     client: ClientHandle,
+    network: Option<N>,
 }
 impl<N: Network> ExportSolutionClickhouse<N> {
     pub fn new(client: ClientHandle) -> Self {
-        Self { client }
+        Self { client, network: None }
     }
     pub async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
         let submitter_address = solution.address.clone();
