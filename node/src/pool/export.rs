@@ -1,20 +1,20 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use chrono::Local;
-use clickhouse_rs::ClientHandle;
+use clickhouse_rs::{Block, ClientHandle};
+use snarkos_node_bft::helpers::now;
 use snarkvm::prelude::Network;
 
-use crate::handle::SubmitSolutionRequest;
+use crate::{handle::SubmitSolutionRequest, model::PartialSolutionMessage};
 
 #[async_trait::async_trait]
 pub trait ExportSolution: Send + Sync {
-    async fn export_solution(&self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()>;
+    async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()>;
 }
 
 #[async_trait::async_trait]
 impl ExportSolution for () {
-    async fn export_solution(&self, _solution: &SubmitSolutionRequest, _: SocketAddr) -> Result<()> {
+    async fn export_solution(&mut self, _: &SubmitSolutionRequest, _: SocketAddr) -> Result<()> {
         Ok(())
     }
 }
@@ -33,20 +33,18 @@ impl<N: Network> ExportSolutionClickhouse<N> {
 impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
     async fn export_solution(&mut self, solution: &SubmitSolutionRequest, ip_addr: SocketAddr) -> Result<()> {
         let submitter_address = solution.address.clone();
-        let partial = solution.solution.partial_solution.clone();
-        let now = Local::now();
-        let query = format!(
-            "INSERT INTO solution (datetime, submitter_address, submitter_ip, solution_id, epoch_hash, address, counter, target) VALUES ({}, {}, {}, {}, {}, {}, {}, {})",
-            now,
-            submitter_address,
-            ip_addr,
-            partial.solution_id,
-            partial.epoch_hash,
-            partial.address,
-            partial.counter,
-            solution.solution.target,
-        );
-        self.client.execute(query).await?;
+        let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
+            solution.solution.partial_solution.clone();
+        let block = Block::new()
+            .column("datetime", vec![now()])
+            .column("submitter_address", vec![submitter_address])
+            .column("submitter_ip", vec![ip_addr.to_string()])
+            .column("solution_id", vec![solution_id])
+            .column("epoch_hash", vec![epoch_hash])
+            .column("address", vec![address])
+            .column("counter", vec![counter])
+            .column("target", vec![solution.solution.target]);
+        self.client.insert("solution", block).await?;
         Ok(())
     }
 }
