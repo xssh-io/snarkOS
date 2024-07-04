@@ -279,14 +279,24 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>) {
         if let Some(pool_base_url) = self.pool_base_url.as_deref() {
-            if let Err(err) = self
+            match self
                 .http_client
                 .post(format!("{}/submit_solution", pool_base_url))
                 .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
                 .send()
                 .await
             {
-                error!("Failed to submit solution: {}", err);
+                Ok(resp) => {
+                    if resp.status().is_success() {
+                        info!("Submitted solution '{}'", solution.id());
+                    } else {
+                        let text = resp.text().await.unwrap_or_else(|_| "Unknown Error".to_string());
+                        error!("Failed to submit solution: {} {}", resp.status(), text);
+                    }
+                }
+                Err(err) => {
+                    error!("Failed to submit solution: {}", err);
+                }
             }
         } else {
             // Prepare the unconfirmed solution message.
