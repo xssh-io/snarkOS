@@ -17,7 +17,7 @@ CREATE TABLE solution
     submitter_address String,
     submitter_ip      String,
     solution_id       String,
-    epoch_hash        Int32,
+    epoch_hash        String,
     address           String,
     counter           Int32,
     target            Int32
@@ -30,7 +30,7 @@ CREATE TABLE solution_attempt
     submitter_address String,
     submitter_ip      String,
     solution_id       String,
-    epoch_hash        Int32,
+    epoch_hash        String,
     address           String,
     counter           Int32,
     target            Int32
