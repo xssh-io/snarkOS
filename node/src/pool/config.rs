@@ -12,7 +12,7 @@ pub struct PoolConfig {
     base_url: String,
     pub clickhouse_password: Option<String>,
     clickhouse_host: Option<String>,
-    clickhouse_port: String,
+    clickhouse_port: Option<String>,
 }
 impl PoolConfig {
     pub fn base_url(&self) -> Url {
@@ -23,7 +23,10 @@ impl PoolConfig {
             Some(host) => host,
             None => "localhost",
         };
-        let port = &self.clickhouse_port;
+        let port = match &self.clickhouse_port {
+            Some(port) => port,
+            None => "9000",
+        };
         if let Some(password) = &self.clickhouse_password {
             let url = format!("tcp://default:{}@{}:{}/clicks?compression=lz4&ping_timeout=42ms", password, host, port);
 
