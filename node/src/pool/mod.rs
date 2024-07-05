@@ -234,7 +234,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
             self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
             "Peer '{peer_ip}' sent an invalid unconfirmed solution"
         );
-        self.export.export_solution(peer_ip, msg).await?;
+        self.export.export_solution(peer_ip, msg, true).await?;
 
         Ok(())
     }

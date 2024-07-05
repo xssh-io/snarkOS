@@ -39,6 +39,7 @@ pub async fn submit_solution_handler(
     ip_addr: NoApi<SecureClientIp>,
     Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
+    info!("Received solution from: {}", ip_addr.0 .0);
     let ip_addr = SocketAddr::new(ip_addr.0 .0, 0);
     if let Err(err) = prover.submit_solution(ip_addr, payload).await {
         warn!("Failed to submit solution: {:?}", err);

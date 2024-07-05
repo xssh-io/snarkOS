@@ -290,8 +290,9 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                     if resp.status().is_success() {
                         info!("Submitted solution '{}'", solution.id());
                     } else {
+                        let status = resp.status();
                         let text = resp.text().await.unwrap_or_else(|_| "Unknown Error".to_string());
-                        error!("Failed to submit solution: {} {}", resp.status(), text);
+                        error!("Failed to submit solution: {} {}", status, text);
                     }
                 }
                 Err(err) => {

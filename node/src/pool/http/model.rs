@@ -81,6 +81,7 @@ pub trait ProverErased: Send + Sync {
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
     async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error> {
+        self.export.export_solution(peer_ip, &request, false).await?;
         let solution: Solution<N> = match request.solution.clone().try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),
