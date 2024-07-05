@@ -18,4 +18,4 @@ do
 done
 
 echo "Running an Aleo Prover node..."
-$COMMAND
+$COMMAND | tee -a ~/snarkos-pool.log
