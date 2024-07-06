@@ -21,7 +21,7 @@ fi
 # mainnet is not ready yet. use testnet
 PEERS=$(scripts/get-testnet-nodes.sh)
 
-COMMAND="snarkos start --nodisplay --pool --network 1 --config $CONFIG --peers $PEERS"
+COMMAND="snarkos start --nodisplay --pool --network 1 --private-key $PROVER_PRIVATE_KEY --config $CONFIG --peers $PEERS"
 
 for word in $*; do
   COMMAND="${COMMAND} ${word}"
