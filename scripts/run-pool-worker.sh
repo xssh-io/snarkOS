@@ -16,7 +16,12 @@ then
   exit
 fi
 
-POOL_BASE_URL="http://10.0.11.54:3031"
+if [ "${POOL_BASE_URL}" == "" ]
+then
+  echo "missing POOL_BASE_URL. run with POOL_BASE_URL=http://address:3031 ./run-prover.sh"
+  exit
+fi
+
 PEERS=$(scripts/get-testnet-nodes.sh)
 
 COMMAND="snarkos start --nodisplay --prover --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers $PEERS"
