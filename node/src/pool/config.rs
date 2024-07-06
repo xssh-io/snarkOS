@@ -8,29 +8,16 @@ use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PoolConfig {
-    pub private_key: String,
     base_url: String,
-    pub clickhouse_password: Option<String>,
-    clickhouse_host: Option<String>,
-    clickhouse_port: Option<String>,
+    pub clickhouse_url: Option<String>,
 }
 impl PoolConfig {
     pub fn base_url(&self) -> Url {
         self.base_url.parse().with_context(|| format!("Invalid base URL: {}", self.base_url)).unwrap()
     }
     pub async fn get_export<N: Network>(&self) -> Result<Arc<dyn ExportSolution>> {
-        let host = match &self.clickhouse_host {
-            Some(host) => host,
-            None => "localhost",
-        };
-        let port = match &self.clickhouse_port {
-            Some(port) => port,
-            None => "9000",
-        };
-        if let Some(password) = &self.clickhouse_password {
-            let url = format!("tcp://default:{}@{}:{}/clicks?compression=lz4&ping_timeout=42ms", password, host, port);
-
-            let clickhouse = clickhouse_rs::Pool::new(url);
+        if let Some(url) = &self.clickhouse_url {
+            let clickhouse = clickhouse_rs::Pool::new(url.clone());
             let handle = clickhouse.get_handle().await?;
             return Ok(Arc::new(ExportSolutionClickhouse::<N>::new(handle)) as _);
         }
