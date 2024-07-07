@@ -14,9 +14,7 @@
 
 use crate::{
     messages::{ChallengeRequest, ChallengeResponse, DisconnectReason, Message, MessageCodec, MessageTrait},
-    NodeType,
-    Peer,
-    Router,
+    NodeType, Peer, Router,
 };
 use snarkos_node_tcp::{ConnectionSide, Tcp, P2P};
 use snarkvm::{
@@ -24,7 +22,7 @@ use snarkvm::{
     prelude::{block::Header, error, Address, Field, Network},
 };
 
-use anyhow::{bail, Result};
+use eyre::{bail, Result};
 use futures::SinkExt;
 use rand::{rngs::OsRng, Rng};
 use std::{io, net::SocketAddr};

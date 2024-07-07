@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{traits::NodeInterface, Client, Pool, Prover, Validator};
+use crate::{traits::NodeInterface, Client, Pool, Prover, Validator, Worker};
 use snarkos_account::Account;
 use snarkos_node_router::messages::NodeType;
 use snarkvm::prelude::{
@@ -38,6 +38,7 @@ pub enum Node<N: Network> {
     Pool(Arc<Pool<N, ConsensusMemory<N>>>),
     /// A client node is a full node, capable of querying with the network.
     Client(Arc<Client<N, ConsensusDB<N>>>),
+    Worker(Arc<Worker<N, ConsensusMemory<N>>>),
 }
 
 impl<N: Network> Node<N> {
@@ -91,7 +92,9 @@ impl<N: Network> Node<N> {
             Prover::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, pool_base_url).await?,
         )))
     }
-
+    pub async fn new_worker(account: Account<N>, shutdown: Arc<AtomicBool>, pool_base_url: String) -> Result<Self> {
+        Ok(Self::Worker(Worker::new(account, shutdown, pool_base_url).await?))
+    }
     /// Initializes a new prover pool.
     pub async fn new_pool(
         node_ip: SocketAddr,
@@ -132,6 +135,7 @@ impl<N: Network> Node<N> {
             Self::Prover(prover) => prover.node_type(),
             Self::Pool(pool) => pool.node_type(),
             Self::Client(client) => client.node_type(),
+            Self::Worker(worker) => worker.node_type(),
         }
     }
 
@@ -142,6 +146,7 @@ impl<N: Network> Node<N> {
             Self::Prover(node) => node.private_key(),
             Self::Pool(node) => node.private_key(),
             Self::Client(node) => node.private_key(),
+            Self::Worker(node) => node.private_key(),
         }
     }
 
@@ -152,6 +157,7 @@ impl<N: Network> Node<N> {
             Self::Prover(node) => node.view_key(),
             Self::Pool(node) => node.view_key(),
             Self::Client(node) => node.view_key(),
+            Self::Worker(node) => node.view_key(),
         }
     }
 
@@ -162,6 +168,7 @@ impl<N: Network> Node<N> {
             Self::Prover(node) => node.address(),
             Self::Pool(node) => node.address(),
             Self::Client(node) => node.address(),
+            Self::Worker(node) => node.address(),
         }
     }
 
@@ -172,6 +179,7 @@ impl<N: Network> Node<N> {
             Self::Prover(node) => node.is_dev(),
             Self::Pool(node) => node.is_dev(),
             Self::Client(node) => node.is_dev(),
+            Self::Worker(node) => node.is_dev(),
         }
     }
 }

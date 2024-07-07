@@ -14,18 +14,10 @@
 
 use crate::{
     messages::{
-        BlockRequest,
-        BlockResponse,
-        DataBlocks,
-        Message,
-        PeerResponse,
-        Ping,
-        Pong,
-        UnconfirmedSolution,
+        BlockRequest, BlockResponse, DataBlocks, Message, PeerResponse, Ping, Pong, UnconfirmedSolution,
         UnconfirmedTransaction,
     },
-    Outbound,
-    Peer,
+    Outbound, Peer,
 };
 use snarkos_node_tcp::protocols::Reading;
 use snarkvm::prelude::{

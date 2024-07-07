@@ -28,6 +28,8 @@ pub enum NodeType {
     Validator,
     /// A prover pool is a collection of prover nodes.
     Pool = 10,
+    /// A worker node is a very light node
+    Worker = 20,
 }
 
 impl NodeType {
@@ -38,6 +40,7 @@ impl NodeType {
             Self::Prover => "a prover node",
             Self::Validator => "a validator node",
             Self::Pool => "a prover pool",
+            Self::Worker => "a worker",
         }
     }
 
@@ -67,6 +70,7 @@ impl core::fmt::Display for NodeType {
                 Self::Prover => "Prover",
                 Self::Validator => "Validator",
                 Self::Pool => "ProverPool",
+                Self::Worker => "Worker",
             }
         )
     }

@@ -22,9 +22,7 @@ then
   exit
 fi
 
-PEERS=$(scripts/get-testnet-nodes.sh)
-
-COMMAND="snarkos start --nodisplay --prover --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL} --peers $PEERS"
+COMMAND="snarkos start --nodisplay --worker --network 1 --private-key ${PROVER_PRIVATE_KEY} --pool-base-url ${POOL_BASE_URL}"
 
 for word in $*;
 do

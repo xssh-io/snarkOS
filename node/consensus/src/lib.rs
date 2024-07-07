@@ -20,16 +20,9 @@ extern crate tracing;
 use snarkos_account::Account;
 use snarkos_node_bft::{
     helpers::{
-        fmt_id,
-        init_consensus_channels,
-        ConsensusReceiver,
-        PrimaryReceiver,
-        PrimarySender,
-        Storage as NarwhalStorage,
+        fmt_id, init_consensus_channels, ConsensusReceiver, PrimaryReceiver, PrimarySender, Storage as NarwhalStorage,
     },
-    spawn_blocking,
-    Primary,
-    BFT,
+    spawn_blocking, Primary, BFT,
 };
 use snarkos_node_bft_ledger_service::LedgerService;
 use snarkos_node_bft_storage_service::BFTPersistentStorage;

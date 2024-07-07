@@ -35,12 +35,10 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Tabs as TabsTui},
-    Frame,
-    Terminal,
+    Frame, Terminal,
 };
 use std::{
-    io,
-    thread,
+    io, thread,
     time::{Duration, Instant},
 };
 use tokio::sync::mpsc::Receiver;

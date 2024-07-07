@@ -1,6 +1,6 @@
 use crate::handle::SubmitSolutionRequest;
 use crate::{NodeInterface, Pool};
-use anyhow::{bail, Error};
+use anyhow::{bail, Error, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
@@ -73,10 +73,17 @@ impl<N: Network> From<PartialSolution<N>> for PartialSolutionMessage {
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PuzzleResponse {
+    pub epoch_hash: String,
+    pub coinbase_target: u64,
+    pub difficulty: u64,
+}
 #[async_trait]
 pub trait ProverErased: Send + Sync {
     async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error>;
     fn pool_address(&self) -> String;
+    fn puzzle(&self) -> Result<PuzzleResponse>;
 }
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
@@ -95,5 +102,11 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
     fn pool_address(&self) -> String {
         let address = self.address();
         address.to_string()
+    }
+    fn puzzle(&self) -> Result<PuzzleResponse> {
+        let epoch_hash = self.ledger.latest_epoch_hash()?;
+        let coinbase_target = self.ledger.latest_header().coinbase_target();
+        let difficulty = self.ledger.latest_header().proof_target();
+        Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty })
     }
 }

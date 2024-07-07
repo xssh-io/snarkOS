@@ -1,9 +1,9 @@
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use aide::NoApi;
+use anyhow::Result;
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::State;
-use eyre::Result;
 use snarkos_node_router_core::extractor::ip::SecureClientIp;
 use snarkos_node_router_core::ws::WebSocketUpgrade;
 use std::fmt::Debug;

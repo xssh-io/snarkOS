@@ -1,4 +1,4 @@
-use crate::model::{ProverErased, SolutionMessage};
+use crate::model::{ProverErased, PuzzleResponse, SolutionMessage};
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use aide::NoApi;
@@ -66,4 +66,19 @@ pub async fn pool_address_handler(prover: State<Arc<dyn ProverErased>>) -> impl 
 
 pub fn pool_address_docs(op: TransformOperation) -> TransformOperation {
     op.description("Pool Address Method").response::<200, Json<PoolAddressResponse>>()
+}
+
+pub async fn puzzle_handler(prover: State<Arc<dyn ProverErased>>) -> impl IntoApiResponse {
+    let puzzle = match prover.puzzle() {
+        Ok(puzzle) => puzzle,
+        Err(err) => {
+            warn!("Failed to get puzzle: {:?}", err);
+            return ServerError::<Infallible>::InternalError(format!("Failed to get puzzle: {:?}", err))
+                .into_response();
+        }
+    };
+    (StatusCode::OK, Json(puzzle)).into_response()
+}
+pub fn puzzle_docs(op: TransformOperation) -> TransformOperation {
+    op.description("Puzzle Method").response::<200, Json<PuzzleResponse>>()
 }

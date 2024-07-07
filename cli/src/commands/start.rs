@@ -87,6 +87,9 @@ pub struct Start {
     #[clap(long = "pool")]
     pub pool: bool,
 
+    /// Specify this node as a prover-pool-worker
+    #[clap(long = "worker")]
+    pub worker: bool,
     /// Specify this node as a client
     #[clap(long = "client")]
     pub client: bool,
@@ -261,14 +264,14 @@ impl Start {
     /// Returns the CDN to prefetch initial blocks from, from the given configurations.
     fn parse_cdn(&self) -> Option<String> {
         // Determine if the node type is not declared.
-        let is_no_node_type = !(self.validator || self.prover || self.client || self.pool);
+        let is_no_node_type = !(self.validator || self.prover || self.client || self.pool || self.worker);
 
         // Disable CDN if:
         //  1. The node is in development mode.
         //  2. The user has explicitly disabled CDN.
         //  3. The node is a prover (no need to sync).
         //  4. The node type is not declared (defaults to client) (no need to sync).
-        if self.dev.is_some() || self.cdn.is_empty() || self.nocdn || self.prover || is_no_node_type {
+        if self.dev.is_some() || self.cdn.is_empty() || self.nocdn || self.prover || self.worker || is_no_node_type {
             None
         }
         // Enable the CDN otherwise.
@@ -498,6 +501,8 @@ impl Start {
             NodeType::Prover
         } else if self.pool {
             NodeType::Pool
+        } else if self.worker {
+            NodeType::Worker
         } else {
             NodeType::Client
         }
@@ -605,6 +610,10 @@ impl Start {
                 let config_content = std::fs::read_to_string(config_path).with_context(|| format!("Failed to read the config file '{:?}'", config_path))?;
                 let config = serde_json::from_str(&config_content).with_context(|| format!("Failed to parse the config file '{:?}'", config_path))?;
                 Node::new_pool(node_ip, account, &trusted_peers, genesis, cdn, storage_mode, shutdown.clone(), config).await
+            },
+            NodeType::Worker => {
+                let pool_base_url = self.pool_base_url.as_deref().with_context(|| "Failed to read the pool base URL. --pool-base-url required")?;
+                Node::new_worker(account, shutdown.clone(), pool_base_url.to_string()).await
             },
         }
     }

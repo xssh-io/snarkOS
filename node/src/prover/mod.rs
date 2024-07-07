@@ -37,14 +37,15 @@ use snarkvm::{
     synthesizer::VM,
 };
 
-use crate::handle::{PoolAddressResponse, SubmitSolutionRequest};
+use crate::get_pool_address;
+use crate::handle::SubmitSolutionRequest;
 use aleo_std::StorageMode;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use core::{marker::PhantomData, time::Duration};
-use futures_util::future::err;
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
+use reqwest::Url;
 use snarkos_node_bft::helpers::fmt_id;
 use snarkvm::prelude::Address;
 use std::{
@@ -81,7 +82,7 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     /// pool_address
     pool_address: Option<Address<N>>,
-    pool_base_url: Option<String>,
+    pool_base_url: Option<Url>,
     http_client: reqwest::Client,
     /// PhantomData.
     _phantom: PhantomData<C>,
@@ -122,12 +123,10 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         // Compute the maximum number of puzzle instances.
         let max_puzzle_instances = num_cpus::get().saturating_sub(2).clamp(1, 6);
         let client = reqwest::Client::new();
+        let pool_base_url = pool_base_url.map(|url| url.parse().context("Invalid pool address")).transpose()?;
         let pool_address;
         if let Some(base_url) = pool_base_url.as_ref() {
-            let response = client.get(format!("{}/pool_address", base_url)).send().await?;
-            let resp: PoolAddressResponse = response.json().await?;
-            pool_address =
-                Some(resp.pool_address.parse().with_context(|| format!("Invalid address: {}", resp.pool_address))?);
+            pool_address = Some(get_pool_address(&client, base_url).await?);
         } else {
             pool_address = None;
         }
@@ -287,10 +286,10 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
 
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>) {
-        if let Some(pool_base_url) = self.pool_base_url.as_deref() {
+        if let Some(pool_base_url) = self.pool_base_url.as_ref() {
             match self
                 .http_client
-                .post(format!("{}/submit_solution", pool_base_url))
+                .post(format!("{}/solution", pool_base_url))
                 .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
                 .send()
                 .await

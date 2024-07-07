@@ -12,7 +12,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_with = "3.7.0"
 serde_with_macros = "3.7.0"
 chrono = { version = "0.4", features = ["serde"] }
-eyre = "0.6.8"
+anyhow = "1.0"
 thiserror = "1"
 tracing = "0.1.39"
 tower = { version = "0.4", features = ["full"] }

@@ -1,6 +1,5 @@
 use crate::pool::export::{ExportSolution, ExportSolutionClickhouse};
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use snarkvm::prelude::Network;

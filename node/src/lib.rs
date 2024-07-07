@@ -44,6 +44,8 @@ pub use validator::*;
 
 mod node;
 pub use node::*;
+mod worker;
+pub use worker::*;
 
 mod traits;
 pub use traits::*;

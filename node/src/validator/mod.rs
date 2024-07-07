@@ -442,6 +442,7 @@ mod tests {
     };
 
     use anyhow::bail;
+    use eyre::bail;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
     use std::str::FromStr;
