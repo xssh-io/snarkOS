@@ -2,7 +2,6 @@ use crate::handle::{PoolAddressResponse, SubmitSolutionRequest};
 use crate::model::PuzzleResponse;
 use anyhow::{Context, Result};
 use colored::Colorize;
-use crossbeam::queue::SegQueue;
 use rand::rngs::OsRng;
 use rand::{CryptoRng, Rng};
 use reqwest::Url;
@@ -16,7 +15,7 @@ use snarkvm::prelude::{Address, Network, PrivateKey, ViewKey, VM};
 use std::marker::PhantomData;
 use std::pin::pin;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub struct Worker<N: Network, C: ConsensusStorage<N>> {
     puzzle: Puzzle<N>,
@@ -85,16 +84,17 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
     }
     pub async fn run(self: Arc<Self>) {
         let cpu_num = num_cpus::get();
-        let tasks: Arc<SegQueue<PuzzleResponse>> = Arc::new(SegQueue::new());
+
+        let task: Arc<RwLock<Option<PuzzleResponse>>> = Arc::new(RwLock::new(None));
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
         for _ in 0..cpu_num {
-            let tasks = tasks.clone();
+            let task = task.clone();
             let worker = self.clone();
             let tx = tx.clone();
             rayon::spawn(move || {
                 while !worker.shutdown.load(std::sync::atomic::Ordering::Acquire) {
-                    if let Some(puzzle) = tasks.pop() {
+                    if let Some(puzzle) = task.read().unwrap().clone() {
                         let epoch_hash: N::BlockHash = match puzzle.epoch_hash.parse() {
                             Ok(epoch_hash) => epoch_hash,
                             Err(_err) => {
@@ -125,9 +125,9 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                     continue;
                 }
             };
+            *task.write().unwrap() = Some(puzzle);
 
             let solution;
-            let mut check_queue_interval = tokio::time::interval(std::time::Duration::from_millis(10));
 
             let mut timeout = pin!(tokio::time::sleep(std::time::Duration::from_secs(10)));
 
@@ -140,13 +140,6 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                         };
                         solution = solution1;
                         break
-                    }
-                    _ = check_queue_interval.tick() => {
-                        if tasks.is_empty() {
-                            for _ in 0..100 {
-                                tasks.push(puzzle.clone());
-                            }
-                        }
                     }
                     _ = &mut timeout  => {
                         info!("Failed to receive solution in time. trying new blocks");
