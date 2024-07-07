@@ -63,13 +63,25 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
             format!("(Coinbase Target {coinbase_target}, Proof Target {proof_target})").dimmed()
         );
         // Compute the solution.
-        let result = self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)).map_err(|err| {
-            warn!("Failed to prove 'Puzzle' for Epoch '{}': {}", fmt_id(epoch_hash), err);
-            err
-        });
-
-        // Return the result.
-        result.ok()
+        match self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)) {
+            Ok(solution) if solution.target() >= proof_target => {
+                info!(
+                    "Proved 'Puzzle' for Epoch '{}' target={} {}",
+                    fmt_id(epoch_hash),
+                    solution.target(),
+                    format!("(Coinbase Target {coinbase_target}, Proof Target {proof_target})").dimmed()
+                );
+                Some(solution)
+            }
+            Ok(_) => {
+                info!("Failed to prove 'Puzzle': {}", "Proof target not met".red());
+                None
+            }
+            Err(err) => {
+                warn!("Failed to prove 'Puzzle': {}", err);
+                None
+            }
+        }
     }
     pub async fn run(self: Arc<Self>) {
         let cpu_num = num_cpus::get();
@@ -184,6 +196,7 @@ pub async fn submit_solution<N: Network>(
     pool_base_url: &Url,
     solution: Solution<N>,
 ) -> Result<()> {
+    info!("Submitting solution: {}", solution.target());
     let response = client
         .post(format!("{}/solution", pool_base_url))
         .json(&SubmitSolutionRequest { address: address.to_string(), solution: solution.into() })
