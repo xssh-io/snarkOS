@@ -42,6 +42,7 @@ use aleo_std::StorageMode;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use core::{marker::PhantomData, time::Duration};
+use futures_util::future::err;
 use parking_lot::{Mutex, RwLock};
 use rand::{rngs::OsRng, CryptoRng, Rng};
 use snarkos_node_bft::helpers::fmt_id;
@@ -266,9 +267,17 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         let address = self.pool_address.unwrap_or(self.address());
 
         // Compute the solution.
-        let result = self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)).ok().and_then(|solution| {
-            self.puzzle.get_proof_target(&solution).ok().map(|solution_target| (solution_target, solution))
-        });
+        let result = self
+            .puzzle
+            .prove(epoch_hash, address, rng.gen(), Some(proof_target))
+            .map_err(|err| {
+                warn!("Failed to prove 'Puzzle' for Epoch '{}': {}", fmt_id(epoch_hash), err);
+                err
+            })
+            .ok()
+            .and_then(|solution| {
+                self.puzzle.get_proof_target(&solution).ok().map(|solution_target| (solution_target, solution))
+            });
 
         // Decrement the puzzle instances.
         self.decrement_puzzle_instances();
