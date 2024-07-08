@@ -1,6 +1,6 @@
 use crate::handle::{PoolAddressResponse, SubmitSolutionRequest};
 use crate::model::PuzzleResponse;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use colored::Colorize;
 use rand::rngs::OsRng;
 use rand::{CryptoRng, Rng};
@@ -174,11 +174,21 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
 }
 pub async fn get_puzzle<N: Network>(client: &reqwest::Client, pool_base_url: &Url) -> Result<PuzzleResponse> {
     let response = client.get(format!("{}/puzzle", pool_base_url)).send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        let text = response.text().await?;
+        bail!("Failed to get puzzle: {} {}", status, text);
+    }
     let resp: PuzzleResponse = response.json().await?;
     Ok(resp)
 }
 pub async fn get_pool_address<N: Network>(client: &reqwest::Client, pool_base_url: &Url) -> Result<Address<N>> {
     let response = client.get(format!("{}/pool_address", pool_base_url)).send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        let text = response.text().await?;
+        bail!("Failed to get pool address: {} {}", status, text);
+    }
     let resp: PoolAddressResponse = response.json().await?;
     let address = resp.pool_address.parse().with_context(|| format!("Invalid address: {}", resp.pool_address))?;
     Ok(address)
@@ -195,6 +205,11 @@ pub async fn submit_solution<N: Network>(
         .json(&SubmitSolutionRequest { address: address.to_string(), solution: solution.into() })
         .send()
         .await?;
+    let status = response.status();
+    if !status.is_success() {
+        let text = response.text().await?;
+        bail!("Failed to submit solution: {} {}", status, text);
+    }
     let resp: Value = response.json().await?;
     info!("Response: {}", resp);
     Ok(())
