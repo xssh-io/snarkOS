@@ -18,7 +18,7 @@ fi
 
 if [ "${POOL_BASE_URL}" == "" ]
 then
-  echo "missing POOL_BASE_URL. run with POOL_BASE_URL=http://address:3031 ./run-prover.sh"
+  echo "missing POOL_BASE_URL. run with POOL_BASE_URL=http://address:3031 ./run-pool-worker.sh"
   exit
 fi
 
@@ -30,5 +30,6 @@ do
 done
 
 echo "Running an Aleo Prover node..."
-$COMMAND
+$COMMAND | tee -a ~/snarkos-pool-worker.log
+
 
