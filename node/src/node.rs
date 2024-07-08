@@ -101,13 +101,12 @@ impl<N: Network> Node<N> {
         account: Account<N>,
         trusted_peers: &[SocketAddr],
         genesis: Block<N>,
-        cdn: Option<String>,
         storage_mode: StorageMode,
         shutdown: Arc<AtomicBool>,
         config: PoolConfig,
     ) -> Result<Self> {
         Ok(Self::Pool(Arc::new(
-            Pool::new(node_ip, account, trusted_peers, genesis, cdn, storage_mode, shutdown, config).await?,
+            Pool::new(node_ip, account, trusted_peers, genesis, storage_mode, shutdown, config).await?,
         )))
     }
     /// Initializes a new client node.

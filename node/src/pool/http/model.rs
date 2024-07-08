@@ -1,6 +1,6 @@
 use crate::handle::SubmitSolutionRequest;
 use crate::{NodeInterface, Pool};
-use anyhow::{bail, Error, Result};
+use anyhow::{bail, Context, Error, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
@@ -104,9 +104,9 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
         address.to_string()
     }
     fn puzzle(&self) -> Result<PuzzleResponse> {
-        let epoch_hash = self.ledger.latest_epoch_hash()?;
-        let coinbase_target = self.ledger.latest_header().coinbase_target();
-        let difficulty = self.ledger.latest_header().proof_target();
+        let epoch_hash = self.latest_epoch_hash.read().clone().context("not ready()")?;
+        let coinbase_target = self.latest_block_header.read().context("not ready()")?.coinbase_target();
+        let difficulty = self.latest_block_header.read().context("not ready()")?.proof_target();
         Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty })
     }
 }

@@ -609,7 +609,7 @@ impl Start {
                 let config_path = self.config.as_deref().with_context(|| "Failed to read the config file. --config required")?;
                 let config_content = std::fs::read_to_string(config_path).with_context(|| format!("Failed to read the config file '{:?}'", config_path))?;
                 let config = serde_json::from_str(&config_content).with_context(|| format!("Failed to parse the config file '{:?}'", config_path))?;
-                Node::new_pool(node_ip, account, &trusted_peers, genesis, cdn, storage_mode, shutdown.clone(), config).await
+                Node::new_pool(node_ip, account, &trusted_peers, genesis, storage_mode, shutdown.clone(), config).await
             },
             NodeType::Worker => {
                 let pool_base_url = self.pool_base_url.as_deref().with_context(|| "Failed to read the pool base URL. --pool-base-url required")?;

@@ -88,7 +88,8 @@ impl FromBytes for NodeType {
             0 => Ok(Self::Client),
             1 => Ok(Self::Prover),
             2 => Ok(Self::Validator),
-            3 => Ok(Self::Pool),
+            10 => Ok(Self::Pool),
+            20 => Ok(Self::Worker),
             _ => Err(error("Invalid node type")),
         }
     }
