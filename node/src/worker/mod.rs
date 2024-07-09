@@ -72,10 +72,6 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                 );
                 Some(solution)
             }
-            Ok(_) => {
-                info!("Failed to prove 'Puzzle': {}", "Proof target not met".red());
-                None
-            }
             Err(err) => {
                 warn!("Failed to prove 'Puzzle': {}", err);
                 None
