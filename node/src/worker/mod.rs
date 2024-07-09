@@ -62,8 +62,8 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
             format!("(Coinbase Target {coinbase_target}, Proof Target {proof_target})").dimmed()
         );
         // Compute the solution.
-        match self.puzzle.prove(epoch_hash, address, rng.gen(), Some(proof_target)) {
-            Ok(solution) if solution.target() >= proof_target => {
+        match self.prove_puzzle(&self.puzzle, epoch_hash, address, rng.gen(), Some(proof_target)) {
+            Ok(solution) => {
                 info!(
                     "Proved 'Puzzle' for Epoch '{}' target={} {}",
                     fmt_id(epoch_hash),
@@ -77,6 +77,24 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                 None
             }
         }
+    }
+    /// Returns a solution to the puzzle.
+    pub fn prove_puzzle(
+        &self,
+        puzzle: &Puzzle<N>,
+        epoch_hash: N::BlockHash,
+        address: Address<N>,
+        counter: u64,
+        minimum_proof_target: Option<u64>,
+    ) -> Result<Solution<N>> {
+        // Construct the partial solution.
+        let partial_solution = PartialSolution::new(epoch_hash, address, counter)?;
+        // Compute the proof target.
+        let proof_target = puzzle.get_proof_target_from_partial_solution(&partial_solution)?;
+        // Check that the minimum proof target is met.
+
+        // Construct the solution.
+        Ok(Solution::new(partial_solution, proof_target))
     }
     pub async fn run(self: Arc<Self>) {
         let cpu_num = num_cpus::get();
