@@ -85,7 +85,7 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
         epoch_hash: N::BlockHash,
         address: Address<N>,
         counter: u64,
-        minimum_proof_target: Option<u64>,
+        _minimum_proof_target: Option<u64>,
     ) -> Result<Solution<N>> {
         // Construct the partial solution.
         let partial_solution = PartialSolution::new(epoch_hash, address, counter)?;

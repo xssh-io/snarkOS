@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::{handle::SubmitSolutionRequest, model::PartialSolutionMessage};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clickhouse_rs::{Block, ClientHandle};
 use snarkos_node_bft::helpers::now;
 use snarkvm::prelude::Network;
@@ -74,7 +74,7 @@ impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
         solution: &SubmitSolutionRequest,
         verified: bool,
     ) -> Result<()> {
-        self.tx.send((ip_addr, solution.clone(), verified)).await?;
+        self.tx.send((ip_addr, solution.clone(), verified)).await.context("clickhouse closed")?;
         Ok(())
     }
 }
