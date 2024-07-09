@@ -766,10 +766,10 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 [[package]]
 name = "clickhouse-rs"
 version = "1.1.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "802fe62a5480415bcdbb5217b3ea029d748c9a3ce3b884767cf58888e33e7f65"
+source = "git+https://github.com/suharev7/clickhouse-rs#e47ba334bd1f28de20dd0c85b9af66fe029a6dea"
 dependencies = [
  "byteorder",
+ "cfg-if",
  "chrono",
  "chrono-tz",
  "clickhouse-rs-cityhash-sys",
@@ -783,10 +783,12 @@ dependencies = [
  "lazy_static",
  "log",
  "lz4",
+ "native-tls",
  "percent-encoding",
  "pin-project",
  "thiserror",
  "tokio",
+ "tokio-native-tls",
  "url",
  "uuid",
 ]
@@ -794,8 +796,7 @@ dependencies = [
 [[package]]
 name = "clickhouse-rs-cityhash-sys"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4baf9d4700a28d6cb600e17ed6ae2b43298a5245f1f76b4eab63027ebfd592b9"
+source = "git+https://github.com/suharev7/clickhouse-rs#e47ba334bd1f28de20dd0c85b9af66fe029a6dea"
 dependencies = [
  "cc",
 ]

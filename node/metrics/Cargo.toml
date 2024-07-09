@@ -6,11 +6,11 @@ description = "A node for a decentralized operating system"
 homepage = "https://aleo.org"
 repository = "https://github.com/AleoHQ/snarkOS"
 keywords = [
-  "aleo",
-  "cryptography",
-  "blockchain",
-  "decentralized",
-  "zero-knowledge",
+    "aleo",
+    "cryptography",
+    "blockchain",
+    "decentralized",
+    "zero-knowledge",
 ]
 categories = ["cryptography", "operating-systems"]
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ metrics = ["snarkvm/metrics"]
 serial = ["snarkvm/metrics"]
 
 [dependencies]
-clickhouse-rs = "=1.1.0-alpha.1"
+clickhouse-rs = { git = "https://github.com/suharev7/clickhouse-rs", features = ["tls"] }
 
 [dependencies.metrics-exporter-prometheus]
 version = "0.13"
