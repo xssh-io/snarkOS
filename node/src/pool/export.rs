@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 
 use crate::{handle::SubmitSolutionRequest, model::PartialSolutionMessage};
 use anyhow::{Context, Result};
+use chrono::Utc;
 use clickhouse_rs::{Block, ClientHandle};
-use snarkos_node_bft::helpers::now;
 use snarkvm::prelude::Network;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -44,7 +44,7 @@ impl<N: Network> ExportSolutionClickhouse<N> {
         let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
             solution.solution.partial_solution.clone();
         let block = Block::new()
-            .column("datetime", vec![now()])
+            .column("datetime", vec![Utc::now().with_timezone(&chrono_tz::Tz::UTC)])
             .column("submitter_address", vec![submitter_address])
             .column("submitter_ip", vec![ip_addr.to_string()])
             .column("solution_id", vec![solution_id])

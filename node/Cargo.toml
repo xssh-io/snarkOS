@@ -38,6 +38,8 @@ reqwest = { version = "0.12.5", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 clickhouse-rs = { git = "https://github.com/suharev7/clickhouse-rs", features = ["tls"] }
+chrono = "0.4"
+chrono-tz = "=0.8"
 
 [dependencies.aleo-std]
 workspace = true
