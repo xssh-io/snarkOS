@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
-use snarkvm::prelude::{Address, Network, Header};
+use snarkvm::prelude::{Address, Header, Network};
 use std::net::SocketAddr;
 
 /// A helper struct around a puzzle solution.
@@ -80,18 +80,18 @@ pub struct PuzzleResponse {
     pub difficulty: u64,
 }
 #[async_trait]
-pub trait ProverErased: Send + Sync {
-    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error>;
+pub trait ProverErased<N: Network>: Send + Sync {
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest<N>) -> Result<(), Error>;
     fn pool_address(&self) -> String;
     fn puzzle(&self) -> Result<PuzzleResponse>;
 }
 #[async_trait]
-impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
+impl<N: Network, C: ConsensusStorage<N>> ProverErased<N> for Pool<N, C> {
     async fn submit_solution(
         &self,
         peer_ip: SocketAddr,
         header: Header<N>,
-        request: SubmitSolutionRequest,
+        request: SubmitSolutionRequest<N>,
     ) -> Result<(), Error> {
         let block_height = header.height();
         self.export.export_solution(peer_ip, &request, false, block_height).await?;
@@ -102,7 +102,7 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
         if solution.address() != self.address() {
             bail!("Invalid pool address: {}", request.address);
         }
-        self.confirm_and_broadcast_solution(peer_ip, &request, solution).await
+        self.confirm_and_broadcclearast_solution(peer_ip, &request, solution, header).await
     }
 
     fn pool_address(&self) -> String {

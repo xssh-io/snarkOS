@@ -14,7 +14,7 @@ impl PoolConfig {
     pub fn base_url(&self) -> Url {
         self.base_url.parse().with_context(|| format!("Invalid base URL: {}", self.base_url)).unwrap()
     }
-    pub async fn get_export<N: Network>(&self) -> Result<Arc<dyn ExportSolution>> {
+    pub async fn get_export<N: Network>(&self) -> Result<Arc<dyn ExportSolution<N>>> {
         if let Some(url) = &self.clickhouse_url {
             let clickhouse = clickhouse_rs::Pool::new(url.clone());
             let handle = clickhouse.get_handle().await?;

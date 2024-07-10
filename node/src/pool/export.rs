@@ -8,24 +8,29 @@ use snarkvm::prelude::Network;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 #[async_trait::async_trait]
-pub trait ExportSolution: Send + Sync {
+pub trait ExportSolution<N: Network>: Send + Sync {
     async fn export_solution(
         &self,
         ip_addr: SocketAddr,
-        solution: &SubmitSolutionRequest,
+        solution: &SubmitSolutionRequest<N>,
         verified: bool,
     ) -> Result<()>;
 }
 
 #[async_trait::async_trait]
-impl ExportSolution for () {
-    async fn export_solution(&self, _: SocketAddr, _: &SubmitSolutionRequest, _verified: bool) -> Result<()> {
+impl<N: Network> ExportSolution<N> for () {
+    async fn export_solution(
+        &self,
+        _: SocketAddr,
+        _: &SubmitSolutionRequest<N>,
+        _verified: bool
+    ) -> Result<()> {
         Ok(())
     }
 }
 
 pub struct ExportSolutionClickhouse<N: Network> {
-    tx: Sender<(SocketAddr, SubmitSolutionRequest, bool)>,
+    tx: Sender<(SocketAddr, SubmitSolutionRequest<N>, bool)>,
     _network: Option<N>,
 }
 impl<N: Network> ExportSolutionClickhouse<N> {
@@ -36,14 +41,14 @@ impl<N: Network> ExportSolutionClickhouse<N> {
     }
     async fn export_solution(
         client: &mut ClientHandle,
-        solution: &SubmitSolutionRequest,
+        solution: &SubmitSolutionRequest<N>,
         ip_addr: SocketAddr,
         verified: bool,
-        block_height: u32
     ) -> Result<()> {
         let submitter_address = solution.address.clone();
         let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
             solution.solution.partial_solution.clone();
+        let block_height = solution.header.height();
         let block = Block::new()
             .column("datetime", vec![Utc::now().with_timezone(&chrono_tz::Tz::UTC)])
             .column("submitter_address", vec![submitter_address])
@@ -59,7 +64,7 @@ impl<N: Network> ExportSolutionClickhouse<N> {
         client.insert(table, block).await?;
         Ok(())
     }
-    async fn run(mut client: ClientHandle, mut rx: Receiver<(SocketAddr, SubmitSolutionRequest, bool)>) {
+    async fn run(mut client: ClientHandle, mut rx: Receiver<(SocketAddr, SubmitSolutionRequest<N>, bool)>) {
         while let Some((ip_addr, solution, verified)) = rx.recv().await {
             if let Err(e) = Self::export_solution(&mut client, &solution, ip_addr, verified).await {
                 error!("Failed to export solution: {:?}", e);
@@ -69,11 +74,11 @@ impl<N: Network> ExportSolutionClickhouse<N> {
 }
 
 #[async_trait::async_trait]
-impl<N: Network> ExportSolution for ExportSolutionClickhouse<N> {
+impl<N: Network> ExportSolution<N> for ExportSolutionClickhouse<N> {
     async fn export_solution(
         &self,
         ip_addr: SocketAddr,
-        solution: &SubmitSolutionRequest,
+        solution: &SubmitSolutionRequest<N>,
         verified: bool,
     ) -> Result<()> {
         self.tx.send((ip_addr, solution.clone(), verified)).await.context("clickhouse closed")?;
