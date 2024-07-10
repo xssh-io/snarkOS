@@ -39,6 +39,7 @@ impl<N: Network> ExportSolutionClickhouse<N> {
         solution: &SubmitSolutionRequest,
         ip_addr: SocketAddr,
         verified: bool,
+        block_height: u32
     ) -> Result<()> {
         let submitter_address = solution.address.clone();
         let PartialSolutionMessage { solution_id, epoch_hash, address, counter } =
@@ -51,7 +52,8 @@ impl<N: Network> ExportSolutionClickhouse<N> {
             .column("epoch_hash", vec![epoch_hash])
             .column("address", vec![address])
             .column("counter", vec![counter])
-            .column("target", vec![solution.solution.target]);
+            .column("target", vec![solution.solution.target])
+            .column("block_height", vec![block_height]);
         let table = if verified { "solution" } else { "solution_attempt" };
 
         client.insert(table, block).await?;

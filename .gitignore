@@ -16,3 +16,35 @@ validator-*
 .direnv
 flake.nix
 flake.lock
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.lock
+devenv.nix
+devenv.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+devenv..nix
+devenv.lock
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

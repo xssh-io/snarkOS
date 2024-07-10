@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
-use snarkvm::prelude::{Address, Network};
+use snarkvm::prelude::{Address, Network, Header};
 use std::net::SocketAddr;
 
 /// A helper struct around a puzzle solution.
@@ -87,8 +87,14 @@ pub trait ProverErased: Send + Sync {
 }
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
-    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error> {
-        self.export.export_solution(peer_ip, &request, false).await?;
+    async fn submit_solution(
+        &self,
+        peer_ip: SocketAddr,
+        header: Header<N>,
+        request: SubmitSolutionRequest,
+    ) -> Result<(), Error> {
+        let block_height = header.height();
+        self.export.export_solution(peer_ip, &request, false, block_height).await?;
         let solution: Solution<N> = match request.solution.clone().try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),

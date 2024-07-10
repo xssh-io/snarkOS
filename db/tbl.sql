@@ -7,7 +7,8 @@ CREATE TABLE solution
     epoch_hash        String,
     address           String,
     counter           UInt64,
-    target            UInt64
+    target            UInt64,
+    block_height      UInt64
 ) ENGINE = MergeTree()
       ORDER BY tuple();
 
@@ -20,6 +21,7 @@ CREATE TABLE solution_attempt
     epoch_hash        String,
     address           String,
     counter           UInt64,
-    target            UInt64
+    target            UInt64,
+    block_height      UInt64
 ) ENGINE = MergeTree()
       ORDER BY tuple();
