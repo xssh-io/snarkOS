@@ -217,10 +217,12 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                 .latest_block_header
                 .read()
                 .as_ref()
-                .map(|header| (header.coinbase_target(), header.proof_target()));
+                .map(|header| (header.coinbase_target(), header.proof_target(), header.round()));
 
             // If the latest epoch hash and latest state exists, then proceed to generate a solution.
-            if let (Some(epoch_hash), Some((coinbase_target, proof_target))) = (latest_epoch_hash, latest_state) {
+            if let (Some(epoch_hash), Some((coinbase_target, proof_target, block_round))) =
+                (latest_epoch_hash, latest_state)
+            {
                 // Execute the puzzle.
                 let prover = self.clone();
                 let result = tokio::task::spawn_blocking(move || {
@@ -232,7 +234,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                 if let Ok(Some((solution_target, solution))) = result {
                     info!("Found a Solution '{}' (Proof Target {solution_target})", solution.id());
                     // Broadcast the solution.
-                    self.broadcast_solution(solution).await;
+                    self.broadcast_solution(solution, block_round).await;
                 }
             } else {
                 // Otherwise, sleep for a brief period of time, to await for puzzle state.
@@ -285,12 +287,16 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     }
 
     /// Broadcasts the solution to the network.
-    async fn broadcast_solution(&self, solution: Solution<N>) {
+    async fn broadcast_solution(&self, solution: Solution<N>, block_round: u64) {
         if let Some(pool_base_url) = self.pool_base_url.as_ref() {
             match self
                 .http_client
                 .post(format!("{}/solution", pool_base_url))
-                .json(&SubmitSolutionRequest { address: self.address().to_string(), solution: solution.into() })
+                .json(&SubmitSolutionRequest {
+                    address: self.address().to_string(),
+                    solution: solution.into(),
+                    block_round,
+                })
                 .send()
                 .await
             {

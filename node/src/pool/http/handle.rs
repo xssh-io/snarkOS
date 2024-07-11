@@ -11,20 +11,20 @@ use snarkos_node_router_core::error::ServerError;
 use snarkos_node_router_core::extractor::ip::SecureClientIp;
 use snarkos_node_router_core::extractor::Json;
 use snarkvm::ledger::puzzle::Solution;
-use snarkvm::prelude::{Header, Network};
+use snarkvm::prelude::Network;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SubmitSolutionRequest<N: Network> {
+pub struct SubmitSolutionRequest {
     pub address: String,
     pub solution: SolutionMessage,
-    pub header: Header<N>,
+    pub block_round: u64,
 }
 
-impl<N: Network> SubmitSolutionRequest<N> {
-    pub fn get_solution(&self) -> Result<Solution<N>, anyhow::Error> {
+impl SubmitSolutionRequest {
+    pub fn get_solution<N: Network>(&self) -> Result<Solution<N>, anyhow::Error> {
         let solution = Solution::<N>::try_from(self.solution.clone())?;
         Ok(solution)
     }
@@ -35,10 +35,10 @@ pub struct SubmitSolutionResponse {
     pub msg: String,
 }
 
-pub async fn submit_solution_handler<N: Network>(
-    prover: State<Arc<dyn ProverErased<N>>>,
+pub async fn submit_solution_handler(
+    prover: State<Arc<dyn ProverErased>>,
     ip_addr: NoApi<SecureClientIp>,
-    Json(payload): Json<SubmitSolutionRequest<N>>,
+    Json(payload): Json<SubmitSolutionRequest>,
 ) -> impl IntoApiResponse {
     info!("Received solution from: {}", ip_addr.0 .0);
     let ip_addr = SocketAddr::new(ip_addr.0 .0, 0);
@@ -59,7 +59,7 @@ pub struct PoolAddressResponse {
     pub pool_address: String,
 }
 
-pub async fn pool_address_handler<N: Network>(prover: State<Arc<dyn ProverErased<N>>>) -> impl IntoApiResponse {
+pub async fn pool_address_handler(prover: State<Arc<dyn ProverErased>>) -> impl IntoApiResponse {
     let pool_address = prover.pool_address();
     let response = PoolAddressResponse { pool_address };
     (StatusCode::OK, Json(response)).into_response()
@@ -69,7 +69,7 @@ pub fn pool_address_docs(op: TransformOperation) -> TransformOperation {
     op.description("Pool Address Method").response::<200, Json<PoolAddressResponse>>()
 }
 
-pub async fn puzzle_handler<N: Network>(prover: State<Arc<dyn ProverErased<N>>>) -> impl IntoApiResponse {
+pub async fn puzzle_handler(prover: State<Arc<dyn ProverErased>>) -> impl IntoApiResponse {
     let puzzle = match prover.puzzle() {
         Ok(puzzle) => puzzle,
         Err(err) => {

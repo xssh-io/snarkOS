@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
-use snarkvm::prelude::{Address, Header, Network};
+use snarkvm::prelude::{Address, Network};
 use std::net::SocketAddr;
 
 /// A helper struct around a puzzle solution.
@@ -78,23 +78,18 @@ pub struct PuzzleResponse {
     pub epoch_hash: String,
     pub coinbase_target: u64,
     pub difficulty: u64,
+    pub block_round: u64,
 }
 #[async_trait]
-pub trait ProverErased<N: Network>: Send + Sync {
-    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest<N>) -> Result<(), Error>;
+pub trait ProverErased: Send + Sync {
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error>;
     fn pool_address(&self) -> String;
     fn puzzle(&self) -> Result<PuzzleResponse>;
 }
 #[async_trait]
-impl<N: Network, C: ConsensusStorage<N>> ProverErased<N> for Pool<N, C> {
-    async fn submit_solution(
-        &self,
-        peer_ip: SocketAddr,
-        header: Header<N>,
-        request: SubmitSolutionRequest<N>,
-    ) -> Result<(), Error> {
-        let block_height = header.height();
-        self.export.export_solution(peer_ip, &request, false, block_height).await?;
+impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error> {
+        self.export.export_solution(peer_ip, &request, false).await?;
         let solution: Solution<N> = match request.solution.clone().try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),
@@ -102,7 +97,7 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased<N> for Pool<N, C> {
         if solution.address() != self.address() {
             bail!("Invalid pool address: {}", request.address);
         }
-        self.confirm_and_broadcclearast_solution(peer_ip, &request, solution, header).await
+        self.confirm_and_broadcast_solution(peer_ip, &request, solution).await
     }
 
     fn pool_address(&self) -> String {
@@ -111,8 +106,10 @@ impl<N: Network, C: ConsensusStorage<N>> ProverErased<N> for Pool<N, C> {
     }
     fn puzzle(&self) -> Result<PuzzleResponse> {
         let epoch_hash = self.latest_epoch_hash.read().clone().context("not ready()")?;
-        let coinbase_target = self.latest_block_header.read().context("not ready()")?.coinbase_target();
-        let difficulty = self.latest_block_header.read().context("not ready()")?.proof_target();
-        Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty })
+        let header = self.latest_block_header.read().context("not ready()")?;
+        let coinbase_target = header.coinbase_target();
+        let difficulty = header.proof_target();
+        let block_round = header.round();
+        Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty, block_round })
     }
 }

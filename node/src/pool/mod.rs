@@ -87,7 +87,7 @@ pub struct Pool<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     pool_base_url: Url,
     ws_config: WsConfig,
-    export: Arc<dyn ExportSolution<N>>,
+    export: Arc<dyn ExportSolution>,
     p: std::marker::PhantomData<C>,
 }
 
@@ -175,7 +175,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
     async fn confirm_and_broadcast_solution(
         &self,
         peer_ip: SocketAddr,
-        msg: &SubmitSolutionRequest<N>,
+        msg: &SubmitSolutionRequest,
         solution: Solution<N>,
     ) -> Result<()> {
         // Do not process unconfirmed solutions if the node is too far behind.

@@ -139,7 +139,7 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                     continue;
                 }
             };
-            *task.write().unwrap() = Some(puzzle);
+            *task.write().unwrap() = Some(puzzle.clone());
 
             let solution;
 
@@ -165,7 +165,7 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
             let client = self.client.clone();
             let pool_base_url = self.pool_base_url.clone();
             let address = self.account.address();
-            if let Err(err) = submit_solution(&client, &address, &pool_base_url, solution).await {
+            if let Err(err) = submit_solution(&client, &address, &pool_base_url, solution, puzzle.block_round).await {
                 warn!("Failed to submit solution: {:?}", err);
             }
         }
@@ -212,11 +212,12 @@ pub async fn submit_solution<N: Network>(
     address: &Address<N>,
     pool_base_url: &Url,
     solution: Solution<N>,
+    block_round: u64,
 ) -> Result<()> {
     info!("Submitting solution: {}", solution.target());
     let response = client
         .post(format!("{}/solution", pool_base_url))
-        .json(&SubmitSolutionRequest { address: address.to_string(), solution: solution.into() })
+        .json(&SubmitSolutionRequest { address: address.to_string(), solution: solution.into(), block_round })
         .send()
         .await?;
     let status = response.status();
