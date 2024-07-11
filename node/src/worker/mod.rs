@@ -217,7 +217,12 @@ pub async fn submit_solution<N: Network>(
     info!("Submitting solution: {}", solution.target());
     let response = client
         .post(format!("{}/solution", pool_base_url))
-        .json(&SubmitSolutionRequest { address: address.to_string(), solution: solution.into(), block_round })
+        .json(&SubmitSolutionRequest {
+            address: address.to_string(),
+            solution: solution.into(),
+            block_round,
+            verified: false,
+        })
         .send()
         .await?;
     let status = response.status();

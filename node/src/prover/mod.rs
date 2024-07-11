@@ -37,8 +37,7 @@ use snarkvm::{
     synthesizer::VM,
 };
 
-use crate::get_pool_address;
-use crate::handle::SubmitSolutionRequest;
+use crate::{get_pool_address, submit_solution};
 use aleo_std::StorageMode;
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -289,25 +288,9 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     /// Broadcasts the solution to the network.
     async fn broadcast_solution(&self, solution: Solution<N>, block_round: u64) {
         if let Some(pool_base_url) = self.pool_base_url.as_ref() {
-            match self
-                .http_client
-                .post(format!("{}/solution", pool_base_url))
-                .json(&SubmitSolutionRequest {
-                    address: self.address().to_string(),
-                    solution: solution.into(),
-                    block_round,
-                })
-                .send()
-                .await
-            {
-                Ok(resp) => {
-                    if resp.status().is_success() {
-                        info!("Submitted solution '{}'", solution.id());
-                    } else {
-                        let status = resp.status();
-                        let text = resp.text().await.unwrap_or_else(|_| "Unknown Error".to_string());
-                        error!("Failed to submit solution: {} {}", status, text);
-                    }
+            match submit_solution(&self.http_client, &self.address(), pool_base_url, solution, block_round).await {
+                Ok(()) => {
+                    info!("Submitted solution '{}'", solution.id());
                 }
                 Err(err) => {
                     error!("Failed to submit solution: {}", err);

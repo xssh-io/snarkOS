@@ -21,6 +21,8 @@ pub struct SubmitSolutionRequest {
     pub address: String,
     pub solution: SolutionMessage,
     pub block_round: u64,
+    #[serde(skip)]
+    pub verified: bool,
 }
 
 impl SubmitSolutionRequest {

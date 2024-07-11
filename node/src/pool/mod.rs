@@ -41,17 +41,19 @@ use snarkvm::{
 };
 
 use crate::handle::SubmitSolutionRequest;
+use crate::model::{ProverErased, PuzzleResponse};
 use crate::pool::config::PoolConfig;
 use crate::pool::export::ExportSolution;
 use crate::pool::ws::WsConfig;
 use crate::route::init_routes;
 use aleo_std::StorageMode;
-use anyhow::ensure;
-use anyhow::Result;
+use anyhow::{bail, Error, Result};
+use anyhow::{ensure, Context};
 use core::time::Duration;
 use parking_lot::Mutex;
 use parking_lot::RwLock;
 use reqwest::Url;
+use snarkos_node_router::messages::Message;
 use snarkos_node_router_core::extractor::ip::{AxumClientIpSourceConfig, SecureClientIpSource};
 use snarkos_node_router_core::serve::{ServeAxum, ServeAxumConfig};
 use snarkvm::prelude::VM;
@@ -175,9 +177,9 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
     async fn confirm_and_broadcast_solution(
         &self,
         peer_ip: SocketAddr,
-        msg: &SubmitSolutionRequest,
+        mut msg: SubmitSolutionRequest,
         solution: Solution<N>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         // Do not process unconfirmed solutions if the node is too far behind.
 
         ensure!(
@@ -192,16 +194,62 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         ensure!(!seen_before, "Skipping 'UnconfirmedSolution' from '{peer_ip}': seen before");
 
         ensure!(solution.address() == self.address(), "Peer '{peer_ip}' sent an invalid unconfirmed solution");
-        // Clone the serialized message.
-        let serialized = UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution.clone()) };
-        // Handle the unconfirmed solution.
-        ensure!(
-            self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
-            "Peer '{peer_ip}' sent an invalid unconfirmed solution"
-        );
-        self.export.export_solution(peer_ip, msg, true).await?;
 
-        Ok(())
+        // Retrieve the latest epoch hash.
+        let epoch_hash = *self.latest_epoch_hash.read();
+        // Retrieve the latest proof target.
+        let proof_target = self.latest_block_header.read().as_ref().map(|header| header.proof_target());
+
+        let (Some(epoch_hash), Some(proof_target)) = (epoch_hash, proof_target) else {
+            bail!("Failed to retrieve the latest epoch hash or proof target")
+        };
+
+        // Ensure that the solution is valid for the given epoch.
+        let puzzle = self.puzzle.clone();
+        let is_valid =
+            tokio::task::spawn_blocking(move || puzzle.check_solution(&solution, epoch_hash, proof_target)).await;
+
+        match is_valid {
+            // If the solution is valid, propagate the `UnconfirmedSolution`.
+            Ok(Ok(())) => {
+                msg.verified = true;
+                self.export.export_solution(peer_ip, &msg).await?;
+                let target = solution.target();
+
+                info!(
+                    "Received VALID solution '{}' from '{}' target={} expected_target={}",
+                    solution.id(),
+                    peer_ip,
+                    target,
+                    proof_target
+                );
+                // Clone the serialized message.
+                let serialized =
+                    UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution.clone()) };
+                // Handle the unconfirmed solution.
+                ensure!(
+                    self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
+                    "Peer '{peer_ip}' sent an invalid unconfirmed solution"
+                );
+                let message = Message::UnconfirmedSolution(serialized);
+                // Propagate the "UnconfirmedSolution".
+                self.propagate(message, &[peer_ip]);
+                Ok(true)
+            }
+            Ok(Err(_)) => {
+                trace!("Invalid solution '{}' for the proof target.", solution.id());
+                Ok(false)
+            }
+            // If error occurs after the first 10 blocks of the epoch, log it as a warning, otherwise ignore.
+            Err(error) => {
+                if let Some(height) = self.latest_block_header.read().as_ref().map(|header| header.height()) {
+                    if height % N::NUM_BLOCKS_PER_EPOCH > 10 {
+                        warn!("Failed to verify the solution - {error}")
+                    }
+                }
+                Ok(false)
+            }
+        }
     }
 }
 
@@ -223,5 +271,33 @@ impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Pool<N, C> {
         self.router.shut_down().await;
 
         info!("Node has shut down.");
+    }
+}
+
+#[async_trait]
+impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<bool, Error> {
+        self.export.export_solution(peer_ip, &request).await?;
+        let solution: Solution<N> = match request.solution.clone().try_into() {
+            Ok(ok) => ok,
+            Err(e) => bail!("Invalid solution: {}", e),
+        };
+        if solution.address() != self.address() {
+            bail!("Invalid pool address: {}", request.address);
+        }
+        self.confirm_and_broadcast_solution(peer_ip, request, solution).await
+    }
+
+    fn pool_address(&self) -> String {
+        let address = self.address();
+        address.to_string()
+    }
+    fn puzzle(&self) -> Result<PuzzleResponse> {
+        let epoch_hash = self.latest_epoch_hash.read().clone().context("not ready()")?;
+        let header = self.latest_block_header.read().context("not ready()")?;
+        let coinbase_target = header.coinbase_target();
+        let difficulty = header.proof_target();
+        let block_round = header.round();
+        Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty, block_round })
     }
 }

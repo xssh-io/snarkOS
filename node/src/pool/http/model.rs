@@ -1,10 +1,8 @@
 use crate::handle::SubmitSolutionRequest;
-use crate::{NodeInterface, Pool};
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, Error, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snarkvm::ledger::puzzle::{PartialSolution, Solution};
-use snarkvm::ledger::store::ConsensusStorage;
 use snarkvm::prelude::{Address, Network};
 use std::net::SocketAddr;
 
@@ -82,34 +80,7 @@ pub struct PuzzleResponse {
 }
 #[async_trait]
 pub trait ProverErased: Send + Sync {
-    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error>;
+    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<bool, Error>;
     fn pool_address(&self) -> String;
     fn puzzle(&self) -> Result<PuzzleResponse>;
-}
-#[async_trait]
-impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
-    async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<(), Error> {
-        self.export.export_solution(peer_ip, &request, false).await?;
-        let solution: Solution<N> = match request.solution.clone().try_into() {
-            Ok(ok) => ok,
-            Err(e) => bail!("Invalid solution: {}", e),
-        };
-        if solution.address() != self.address() {
-            bail!("Invalid pool address: {}", request.address);
-        }
-        self.confirm_and_broadcast_solution(peer_ip, &request, solution).await
-    }
-
-    fn pool_address(&self) -> String {
-        let address = self.address();
-        address.to_string()
-    }
-    fn puzzle(&self) -> Result<PuzzleResponse> {
-        let epoch_hash = self.latest_epoch_hash.read().clone().context("not ready()")?;
-        let header = self.latest_block_header.read().context("not ready()")?;
-        let coinbase_target = header.coinbase_target();
-        let difficulty = header.proof_target();
-        let block_round = header.round();
-        Ok(PuzzleResponse { epoch_hash: epoch_hash.to_string(), coinbase_target, difficulty, block_round })
-    }
 }
