@@ -226,11 +226,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
                 // Clone the serialized message.
                 let serialized =
                     UnconfirmedSolution { solution_id: solution.id(), solution: Data::Object(solution.clone()) };
-                // Handle the unconfirmed solution.
-                ensure!(
-                    self.unconfirmed_solution(peer_ip, serialized.clone(), solution).await,
-                    "Peer '{peer_ip}' sent an invalid unconfirmed solution"
-                );
+
                 let message = Message::UnconfirmedSolution(serialized);
                 // Propagate the "UnconfirmedSolution".
                 self.propagate(message, &[peer_ip]);
