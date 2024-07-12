@@ -13,7 +13,6 @@ use snarkvm::ledger::puzzle::{PartialSolution, Puzzle, Solution};
 use snarkvm::ledger::store::ConsensusStorage;
 use snarkvm::prelude::{Address, Network, PrivateKey, ViewKey, VM};
 use std::marker::PhantomData;
-use std::pin::pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 
@@ -130,42 +129,43 @@ impl<N: Network, C: ConsensusStorage<N>> Worker<N, C> {
                 }
             });
         }
-        'outer: while !self.shutdown.load(std::sync::atomic::Ordering::Acquire) {
-            let puzzle = match get_puzzle::<N>(&self.client, &self.pool_base_url).await {
-                Ok(puzzle) => puzzle,
-                Err(err) => {
-                    warn!("Failed to get puzzle: {:?}", err);
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    continue;
+        {
+            let client = self.client.clone();
+            let pool_base_url = self.pool_base_url.clone();
+            let task = task.clone();
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(3));
+            tokio::spawn(async move {
+                loop {
+                    interval.tick().await;
+                    let puzzle = match get_puzzle::<N>(&client, &pool_base_url).await {
+                        Ok(puzzle) => puzzle,
+                        Err(err) => {
+                            warn!("Failed to get puzzle: {:?}", err);
+                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                            continue;
+                        }
+                    };
+                    if let Some(task) = &*task.read().unwrap() {
+                        if task.block_round == puzzle.block_round {
+                            continue;
+                        }
+                    }
+                    info!("New puzzle: {:?}", puzzle);
+                    *task.write().unwrap() = Some(puzzle.clone());
                 }
+            });
+        }
+        while !self.shutdown.load(std::sync::atomic::Ordering::Acquire) {
+            let Some(solution) = rx.recv().await else {
+                warn!("Failed to receive solution");
+                break;
             };
-            *task.write().unwrap() = Some(puzzle.clone());
-
-            let solution;
-
-            let mut timeout = pin!(tokio::time::sleep(std::time::Duration::from_secs(10)));
-
-            loop {
-                tokio::select! {
-                    solution1 = rx.recv() => {
-                        let Some(solution1) = solution1 else {
-                            warn!("Failed to receive solution");
-                            break 'outer;
-                        };
-                        solution = solution1;
-                        break
-                    }
-                    _ = &mut timeout  => {
-                        info!("Failed to receive solution in time. trying new blocks");
-                        continue 'outer;
-                    }
-                }
-            }
 
             let client = self.client.clone();
             let pool_base_url = self.pool_base_url.clone();
             let address = self.account.address();
-            if let Err(err) = submit_solution(&client, &address, &pool_base_url, solution, puzzle.block_round).await {
+            let block_round = task.read().unwrap().as_ref().unwrap().block_round;
+            if let Err(err) = submit_solution(&client, &address, &pool_base_url, solution, block_round).await {
                 warn!("Failed to submit solution: {:?}", err);
             }
         }
