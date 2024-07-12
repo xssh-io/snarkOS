@@ -48,7 +48,7 @@ impl<N: Network> ExportSolutionClickhouse<N> {
             .column("target", vec![solution.solution.target])
             .column("block_round", vec![solution.block_round]);
         let table = if solution.verified { "solution" } else { "solution_attempt" };
-
+        info!("Exporting solution to Clickhouse: verified={}", solution.verified);
         client.insert(table, block).await?;
         Ok(())
     }

@@ -194,6 +194,7 @@ impl<N: Network, C: ConsensusStorage<N>> Pool<N, C> {
         ensure!(!seen_before, "Skipping 'UnconfirmedSolution' from '{peer_ip}': seen before");
 
         ensure!(solution.address() == self.address(), "Peer '{peer_ip}' sent an invalid unconfirmed solution");
+        self.export.export_solution(peer_ip, &msg).await?;
 
         // Retrieve the latest epoch hash.
         let epoch_hash = *self.latest_epoch_hash.read();
@@ -273,7 +274,6 @@ impl<N: Network, C: ConsensusStorage<N>> NodeInterface<N> for Pool<N, C> {
 #[async_trait]
 impl<N: Network, C: ConsensusStorage<N>> ProverErased for Pool<N, C> {
     async fn submit_solution(&self, peer_ip: SocketAddr, request: SubmitSolutionRequest) -> Result<bool, Error> {
-        self.export.export_solution(peer_ip, &request).await?;
         let solution: Solution<N> = match request.solution.clone().try_into() {
             Ok(ok) => ok,
             Err(e) => bail!("Invalid solution: {}", e),
